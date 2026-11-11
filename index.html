@@ -417,7 +417,7 @@ async function loadList() {
 }
 function renderSide() {
   const list = S.exams.filter((e) => e.year === S.year).sort((a, b) => a.round - b.round);
-  $("#exList").innerHTML = list.length ? list.map((e) => `<button class="excard ${S.exam?.id === e.id ? "on" : ""}" data-id="${e.id}"><b>${e.round}차</b> <span class="muted" style="font-size:12px">${esc(e.date || "")}</span><div class="m">응시 ${e.n}명 · ${esc(e.title || "")}</div></button>`).join("")
+  $("#exList").innerHTML = list.length ? list.map((e) => `<button class="excard ${S.exam?.id === e.id ? "on" : ""}" data-id="${e.id}"><b>${e.round}차</b><div class="m">응시 ${e.n}명 · ${esc(e.title || "")}</div></button>`).join("")
     : `<div class="hint">이 학년도에 시험이 없습니다.<br>[+ 새 시험 만들기]로 추가하세요.</div>`;
 }
 // 로고 클릭 → 첫 화면 (선택한 시험 닫기)
@@ -493,7 +493,6 @@ $("#btnNew").onclick = async () => {
       <span class="sub">학년도</span><input id="nY" type="number" value="${S.year}">
       <span class="sub">차수</span><input id="nR" type="number" value="${nextRound}">
       <span class="sub">시험 이름</span><input id="nT" value="와이즈만 전국 모의고사">
-      <span class="sub">시행일</span><input id="nD" type="date">
     </div>
     ${prev ? `<label class="row" style="margin-top:12px"><input type="checkbox" id="nCopy"> ${prev.round}차 시험의 문항 구성·영역·배점 복사</label>` : ""}
     <p class="hint" style="margin-top:10px">문항 구성·배점·커트라인은 만든 뒤 [시험 설정]에서 입력합니다.</p>
@@ -502,10 +501,10 @@ $("#btnNew").onclick = async () => {
   $("#nC", m).onclick = () => m.remove();
   $("#nOk", m).onclick = async () => {
     try {
-      let config = { title: $("#nT", m).value.trim(), date: $("#nD", m).value };
+      let config = { title: $("#nT", m).value.trim() };
       if (prev && $("#nCopy", m)?.checked) {
         const p = normExam((await api("examGet", { id: prev.id })).exam).config;
-        config = { ...p, title: config.title, date: config.date, cutoffs: p.cutoffs.map((x) => ({ name: x.name, math: null, sci: null })) };
+        config = { ...p, title: config.title, date: "", cutoffs: p.cutoffs.map((x) => ({ name: x.name, math: null, sci: null })) };
       }
       const d = await api("examSave", { year: Number($("#nY", m).value), round: Number($("#nR", m).value), config, students: [] });
       m.remove(); S.year = Number($("#nY", m).value); await loadList(); await openExam(d.id, true);
@@ -714,7 +713,6 @@ function viewConfig(v) {
         <span class="sub">학년도</span><input id="cY" type="number" value="${ex.year}">
         <span class="sub">차수</span><input id="cR" type="number" value="${ex.round}">
         <span class="sub">시험 이름</span><input id="cT" value="${esc(c.title)}">
-        <span class="sub">시행일</span><input id="cD" type="date" value="${esc(c.date)}">
         <span class="sub">수학 환산 비율</span><input id="cKm" value="${esc(c.conv.math)}">
         <span class="sub">과학 환산 비율</span><input id="cKs" value="${esc(c.conv.sci)}">
       </div>
@@ -734,7 +732,6 @@ function viewConfig(v) {
   $("#cY").onchange = (e) => { ex.year = Number(e.target.value); ch(); render(); };
   $("#cR").onchange = (e) => { ex.round = Number(e.target.value); ch(); render(); };
   $("#cT").oninput = (e) => { c.title = e.target.value; ch(); };
-  $("#cD").onchange = (e) => { c.date = e.target.value; ch(); };
   $("#cKm").oninput = (e) => { c.conv.math = e.target.value; ch(); };
   $("#cKs").oninput = (e) => { c.conv.sci = e.target.value; ch(); };
   $("#cM").oninput = (e) => { c.memo = e.target.value; ch(); };
@@ -885,7 +882,7 @@ function reportHtml(ex, k, i) {
    <div class="hd"><img src="${WZ_LOGO}" alt="와이즈만">
      <div class="tt"><div class="t1">${ex.year}학년도 영재학교 대비</div><div class="t2">${esc(c.title)} <b>${ex.round}차</b> 결과표</div></div></div>
    <div class="who">
-     <div class="id"><div class="k">학생명</div><div class="v">${esc(r.name)}</div><div class="c">${esc(r.center)} 센터${c.date ? " · " + esc(c.date) : ""}</div></div>
+     <div class="id"><div class="k">학생명</div><div class="v">${esc(r.name)}</div><div class="c">${esc(r.center)} 센터</div></div>
      ${kpi("환산 총점", f1(val("conv")), "/ " + fmax(k.max.ct), "hl")}
      ${kpi("환산 석차", rk("conv") ?? "-", "/ " + k.N)}
      ${kpi("환산 백분위", pct("conv"), "")}
@@ -1087,8 +1084,8 @@ function viewManage(v) {
   const ys = [...new Set(S.exams.map((e) => e.year))].sort((a, b) => b - a);
   v.innerHTML = `<div class="grid2">
    <div class="card"><h3>시험 목록</h3>
-    ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>시행일</th><th>응시</th><th>수정</th><th>수정자</th><th></th></tr></thead><tbody>
-     ${ys.map((y, yi) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e, ei) => `<tr class="${yi > 0 && ei === 0 ? "ygap" : ""}"><td>${ei === 0 ? `<b>${e.year}</b>` : `<span class="muted">${e.year}</span>`}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
+    ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>응시</th><th>수정</th><th>수정자</th><th></th></tr></thead><tbody>
+     ${ys.map((y, yi) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e, ei) => `<tr class="${yi > 0 && ei === 0 ? "ygap" : ""}"><td>${ei === 0 ? `<b>${e.year}</b>` : `<span class="muted">${e.year}</span>`}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
        <td><button class="small" data-open="${e.id}">열기</button> ${S.user?.role === "admin" ? `<button class="small danger" data-delx="${e.id}">삭제</button>` : ""}</td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
     ${S.exam?.id && S.backup ? `<div style="margin-top:14px" class="hint">현재 시험(${S.exam.year}학년도 ${S.exam.round}차)의 직전 저장본: ${new Date(S.backup.saved_at).toLocaleString("ko-KR")} · ${S.backup.n}명 <button class="small" id="restore">이 저장본으로 되돌리기</button></div>` : ""}
    </div>
