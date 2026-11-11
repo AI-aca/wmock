@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영재학교 모의고사 관리</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238b7cff'/%3E%3Cstop offset='1' stop-color='%2345d4c8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M8 23V13M14 23V9M20 23v-7M26 23V11' stroke='%230a0d18' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#080b14; --bg2:#0d1220; --glass:rgba(255,255,255,.035); --glass2:rgba(255,255,255,.06); --glass3:rgba(255,255,255,.09);
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14); --text:#eef1f8; --sub:#b7bdcc; --muted:#7d8599;
+  --a1:#8b7cff; --a2:#45d4c8; --gold:#e6c27a; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --grad:linear-gradient(135deg,var(--a1),var(--a2)); --ease:cubic-bezier(.22,.8,.24,1); --r:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--text);font-family:"Pretendard",-apple-system,"Malgun Gothic",sans-serif;font-size:14px;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:-20%;z-index:-2;background:
+  radial-gradient(40% 35% at 15% 10%,rgba(139,124,255,.20),transparent 70%),
+  radial-gradient(35% 35% at 90% 85%,rgba(69,212,200,.14),transparent 70%)}
+button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
+button{cursor:pointer;border:1px solid var(--line2);background:var(--glass2);border-radius:12px;padding:9px 16px;transition:all .2s var(--ease)}
+button:hover{background:var(--glass3);border-color:rgba(255,255,255,.22)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{border:none;background:var(--grad);color:#0a0d18;font-weight:700;box-shadow:0 8px 24px -10px rgba(139,124,255,.7)}
+button.primary:hover{filter:brightness(1.08)}
+button.orange{border:none;background:linear-gradient(135deg,#fb923c,#f59e0b);color:#1a0f00;font-weight:700}
+button.ghost{background:transparent;border-color:transparent;color:var(--sub)}
+button.ghost:hover{background:var(--glass2);color:var(--text)}
+button.danger{color:#fca5a5;border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.06)}
+button.small{padding:5px 11px;font-size:12px;border-radius:9px}
+input,select,textarea{background:rgba(0,0,0,.28);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-width:0}
+input:focus,select:focus,textarea:focus{outline:none;border-color:rgba(139,124,255,.7);box-shadow:0 0 0 3px rgba(139,124,255,.18)}
+select option{background:#151a2a}
+textarea{width:100%;resize:vertical;line-height:1.6}
+h1,h2,h3,h4,p{margin:0}
+.hidden{display:none!important}
+.muted{color:var(--muted)}.sub{color:var(--sub)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+
+/* 로그인 */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.lbox{width:min(400px,100%);padding:34px 30px;border-radius:24px;background:rgba(18,24,40,.75);border:1px solid var(--line2);box-shadow:0 40px 100px rgba(0,0,0,.45)}
+.lbox h1{font-size:22px;margin:14px 0 6px}.lbox p{color:var(--sub);font-size:13px;line-height:1.6}
+.lbox input{width:100%;margin-top:16px;padding:12px 14px}.lbox button{width:100%;margin-top:12px;padding:12px}
+.logo{width:46px;height:46px;border-radius:14px;background:var(--grad);display:flex;align-items:center;justify-content:center}
+.err{color:#fca5a5;font-size:13px;margin-top:10px;min-height:18px}
+
+/* 앱 */
+#app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);background:rgba(8,11,20,.6);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:15px}
+.brand .logo{width:34px;height:34px;border-radius:10px}
+.lab{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+aside select{width:100%}
+.exlist{display:flex;flex-direction:column;gap:6px}
+.excard{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--glass);cursor:pointer;text-align:left;width:100%}
+.excard b{font-size:14px}.excard .m{font-size:12px;color:var(--muted);margin-top:2px}
+.excard.on{border-color:var(--a1);background:rgba(139,124,255,.12)}
+main{min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:6px;padding:12px 20px;border-bottom:1px solid var(--line);background:rgba(8,11,20,.7);position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);flex-wrap:wrap}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{border:none;background:transparent;color:var(--sub);padding:8px 14px;border-radius:10px;font-weight:600}
+.tab.on{background:var(--glass3);color:var(--text);box-shadow:inset 0 0 0 1px var(--line2)}
+.sep{width:1px;height:22px;background:var(--line2);margin:0 6px}
+.extitle{font-weight:800;font-size:15px;margin-right:12px}
+.content{padding:20px;min-width:0}
+.card{border:1px solid var(--line);background:var(--glass);border-radius:var(--r);padding:18px}
+.card h3{font-size:15px;margin-bottom:12px}
+.empty{padding:60px 20px;text-align:center;color:var(--sub);line-height:1.8}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1b2236;border:1px solid var(--line2);padding:11px 18px;border-radius:12px;z-index:300;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.dirty{position:fixed;right:20px;bottom:20px;z-index:150;background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.6);color:#fdba74;padding:10px 14px;border-radius:12px;display:flex;gap:10px;align-items:center}
+.busy{position:fixed;inset:0;z-index:250;background:rgba(4,6,12,.6);display:flex;align-items:center;justify-content:center}
+.busy .bx{background:#121828;border:1px solid var(--line2);padding:22px 28px;border-radius:16px;min-width:320px;text-align:center}
+.bar{height:8px;border-radius:9px;background:var(--glass3);margin-top:12px;overflow:hidden}.bar i{display:block;height:100%;background:var(--grad);width:0}
+.modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(4,6,12,.62);backdrop-filter:blur(6px)}
+.modal .mbox{width:min(440px,92vw);padding:24px;border-radius:18px;background:#121828;border:1px solid var(--line2);max-height:88vh;overflow:auto}
+.modal .mbox.wide{width:min(820px,94vw)}
+.modal h3{margin-bottom:10px}
+
+/* 표 */
+.tw{overflow:auto;border:1px solid var(--line);border-radius:14px;max-height:calc(100vh - 190px)}
+table.g{border-collapse:separate;border-spacing:0;font-size:12.5px;white-space:nowrap}
+table.g th,table.g td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;height:28px}
+table.g thead th{position:sticky;background:#141a2b;z-index:3;font-weight:600;color:var(--sub);padding:0 6px}
+table.g thead tr:nth-child(1) th{top:0}table.g thead tr:nth-child(2) th{top:28px}table.g thead tr:nth-child(3) th{top:56px}table.g thead tr:nth-child(4) th{top:84px}
+table.g .stk{position:sticky;z-index:2;background:#0f1424}
+table.g thead .stk{z-index:4;background:#141a2b}
+table.g td input{width:100%;height:27px;border:none;border-radius:0;background:transparent;text-align:center;padding:0 3px}
+table.g td input:focus{box-shadow:inset 0 0 0 2px var(--a1);background:rgba(139,124,255,.1)}
+table.g td.nm input{text-align:left;padding-left:8px}
+table.g td.dup input{background:rgba(59,130,246,.35)}
+table.g td.over input{background:rgba(248,113,113,.3)}
+table.g td.auto{background:rgba(69,212,200,.05);padding:0 7px;color:#bff5ef;font-variant-numeric:tabular-nums}
+table.g th.m{color:#c4b5fd}table.g th.s{color:#5eead4}
+table.g tr.avg td{color:var(--gold);background:rgba(230,194,122,.05)}
+table.v{border-collapse:collapse;font-size:13px;width:100%}
+table.v th,table.v td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:center;white-space:nowrap}
+table.v thead th{position:sticky;top:0;background:#141a2b;color:var(--sub);font-weight:600;z-index:2}
+table.v td.l{text-align:left}
+table.v tr:hover td{background:rgba(255,255,255,.025)}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;background:var(--glass3);font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1200px){.grid2{grid-template-columns:1fr}}
+.itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.7}
+.kpis{display:flex;gap:10px;flex-wrap:wrap}
+.kpi{padding:10px 14px;border-radius:12px;background:var(--glass2);border:1px solid var(--line);min-width:110px}
+.kpi .k{font-size:11.5px;color:var(--muted)}.kpi .v{font-size:18px;font-weight:800;margin-top:2px}
+
+/* 성적표 (A4, 흰 배경, 시스템 글꼴) */
+.rpwrap{display:flex;justify-content:center;padding:10px 0 40px;overflow:auto}
+.rp{width:794px;min-height:1123px;background:#fff;color:#1f2430;padding:44px 46px 36px;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:12.5px;letter-spacing:-.02em;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative}
+.rp .t1{font-size:15px;font-weight:700;color:#4c4f9b;text-align:center}
+.rp .t2{font-size:23px;font-weight:800;text-align:center;margin:4px 0 18px;color:#111}
+.rp .sec{font-size:14px;font-weight:800;color:#2d2f6b;margin:16px 0 7px}
+.rp table{border-collapse:collapse;width:100%}
+.rp th,.rp td{border:1px solid #c9cde0;padding:5px 4px;text-align:center;font-variant-numeric:tabular-nums}
+.rp thead th{background:#eceefa;color:#2d2f6b;font-weight:700}
+.rp th.rh{background:#f5f6fb;font-weight:700;color:#333}
+.rp tr.me td{font-weight:800;color:#111;background:#fff8e6}
+.rp .note{font-size:11px;color:#555;margin-top:5px;line-height:1.6}
+.rp .info{display:flex;justify-content:flex-end;gap:0}
+.rp .info table{width:300px}
+.rp .two{display:grid;grid-template-columns:42% 1fr;gap:16px}
+.rp .chartbox{height:230px;margin-top:4px}
+.rp .foot{position:absolute;left:46px;right:46px;bottom:22px;font-size:10.5px;color:#888;display:flex;justify-content:space-between;border-top:1px solid #e3e5ef;padding-top:6px}
+#rpStage{position:fixed;left:-10000px;top:0}
+@media print{
+  body{background:#fff}body::before{display:none}
+  aside,header,.noprint,.dirty{display:none!important}
+  #app{display:block}.content{padding:0}.rpwrap{padding:0}.rp{box-shadow:none}
+  @page{size:A4;margin:0}
+}
+</style>
+</head>
+<body>
+
+<div id="login" class="hidden">
+  <div class="lbox">
+    <div class="logo"><svg width="24" height="24" viewBox="0 0 32 32"><path d="M8 23V13M14 23V9M20 23v-7M26 23V11" stroke="#0a0d18" stroke-width="3.2" stroke-linecap="round"/></svg></div>
+    <h1>영재학교 모의고사 관리</h1>
+    <p id="lmsg">관리자 비밀번호를 입력하세요.</p>
+    <input id="lpw" type="password" placeholder="비밀번호" autocomplete="current-password">
+    <input id="lpw2" type="password" placeholder="비밀번호 확인" class="hidden" autocomplete="new-password">
+    <button class="primary" id="lbtn">로그인</button>
+    <div class="err" id="lerr"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <aside>
+    <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M8 23V13M14 23V9M20 23v-7M26 23V11" stroke="#0a0d18" stroke-width="3.4" stroke-linecap="round"/></svg></div>영재학교 모의고사 관리</div>
+    <div><div class="lab">학년도</div><select id="selYear"></select></div>
+    <div><div class="lab">시험(차수)</div><div class="exlist" id="exList"></div></div>
+    <button id="btnNew">+ 새 시험 만들기</button>
+    <div class="grow"></div>
+    <button class="ghost small" id="btnPw">비밀번호 변경</button>
+    <button class="ghost small" id="btnLogout">로그아웃</button>
+  </aside>
+  <main>
+    <header>
+      <span class="extitle" id="exTitle">시험을 선택하세요</span>
+      <div class="tabs" id="tabs">
+        <button class="tab" data-t="input">성적 입력</button>
+        <button class="tab" data-t="total">종합성적</button>
+        <button class="tab" data-t="rank">순위별 정리</button>
+        <button class="tab" data-t="report">성적표 출력</button>
+        <span class="sep"></span>
+        <button class="tab" data-t="config">시험 설정</button>
+        <button class="tab" data-t="manage">시험 목록·가져오기</button>
+      </div>
+      <div class="grow"></div>
+      <button class="primary" id="btnSave">저장</button>
+    </header>
+    <div class="content" id="view"></div>
+  </main>
+</div>
+<div id="rpStage"></div>
+
+<script>
+"use strict";
+// ======================= 기본 =======================
+const API = "https://xphtctpbysbbdyjaxidh.supabase.co/functions/v1/mock";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let token = sessionStorage.getItem("mock_token") || "";
+const S = { exams: [], year: null, exam: null, backup: null, tab: "input", dirty: false, center: "", rankBy: "conv", stu: -1 };
+const AREA_MAP = { 기: "기하", 조: "조합", 대: "대수", 물: "물리", 화: "화학", 생: "생명과학", 지: "지구과학" };
+const DEF_CUTS = ["서울, 경기, KSA", "인천, 대구, 대전", "광주, 세종"];
+
+async function api(action, body = {}) {
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, token, ...body }) });
+  let d; try { d = await r.json(); } catch { throw new Error("서버 응답을 읽지 못했습니다."); }
+  if (!d.ok) {
+    if (/로그인이 (필요|만료)/.test(d.error || "")) { token = ""; sessionStorage.removeItem("mock_token"); showLogin(); }
+    throw new Error(d.error || "오류가 발생했습니다.");
+  }
+  return d;
+}
+function toast(msg, ms = 2600) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), ms);
+}
+function busy(msg) {
+  let b = $("#busy");
+  if (!msg) { b?.remove(); return; }
+  if (!b) { b = document.createElement("div"); b.id = "busy"; b.className = "busy"; b.innerHTML = `<div class="bx"><div id="busyMsg"></div><div class="bar"><i id="busyBar"></i></div></div>`; document.body.appendChild(b); }
+  $("#busyMsg").textContent = msg;
+}
+function busyProg(p) { const i = $("#busyBar"); if (i) i.style.width = Math.round(p * 100) + "%"; }
+function modal(html, wide = false) {
+  const m = document.createElement("div"); m.className = "modal";
+  m.innerHTML = `<div class="mbox ${wide ? "wide" : ""}">${html}</div>`;
+  document.body.appendChild(m);
+  return m;
+}
+function confirmBox(msg, okText = "확인") {
+  return new Promise((res) => {
+    const m = modal(`<div style="white-space:pre-line;line-height:1.7">${esc(msg)}</div><div class="row" style="justify-content:flex-end;margin-top:18px"><button data-x="0">취소</button><button class="primary" data-x="1">${esc(okText)}</button></div>`);
+    m.addEventListener("click", (e) => { const x = e.target.dataset?.x; if (x != null) { m.remove(); res(x === "1"); } });
+    setTimeout(() => m.querySelector('[data-x="1"]').focus(), 30);
+  });
+}
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("라이브러리를 불러오지 못했습니다: " + src)); document.head.appendChild(s); });
+}
+async function needXLSX() { if (!window.XLSX) await loadScript("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"); }
+async function needPDF() {
+  if (!window.htmlToImage) await loadScript("https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js");
+  if (!window.jspdf) await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+}
+async function needZip() { if (!window.JSZip) await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"); }
+function download(blob, name) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+const safeName = (s) => String(s).replace(/[\\/:*?"<>|]/g, "_");
+
+// ======================= 계산 (기존 구글시트 수식과 동일) =======================
+const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+function parseRatio(s) {
+  const t = String(s ?? "").trim();
+  const m = t.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (m) return Number(m[1]) / Number(m[2]);
+  const n = Number(t); return Number.isFinite(n) ? n : 0;
+}
+const R9 = (x) => Math.round(x * 1e9) / 1e9;
+function rankOf(vals) { // RANK.EQ(내림차순), 숫자만. 반환: 순위 배열(숫자 아님은 null)
+  const nums = vals.filter(isNum).map(R9);
+  return vals.map((v) => (isNum(v) ? 1 + nums.filter((x) => x > R9(v)).length : null));
+}
+const avg = (a) => { const n = a.filter(isNum); return n.length ? n.reduce((x, y) => x + y, 0) / n.length : null; };
+function sumOrDash(arr) { const n = arr.filter(isNum); return n.length ? n.reduce((x, y) => x + y, 0) : null; }
+
+function calc(ex) {
+  const c = ex.config, st = ex.students.filter((s) => s.name);
+  const km = parseRatio(c.conv?.math ?? "1.2"), ks = parseRatio(c.conv?.sci ?? "2/3");
+  const mA = c.math.areas, sA = c.sci.areas;
+  const areaIdx = (items, area) => items.map((it, i) => (it.area === area ? i : -1)).filter((i) => i >= 0);
+  const mIdx = mA.map((a) => areaIdx(c.math.items, a)), sIdx = sA.map((a) => areaIdx(c.sci.items, a));
+  const areaScore = (vals, idx) => { const v = idx.map((i) => vals[i]).filter(isNum); return v.length ? v.reduce((x, y) => x + y, 0) : null; };
+  const max = {
+    m: mIdx.map((ix) => ix.reduce((x, i) => x + (Number(c.math.items[i].max) || 0), 0)),
+    s: sIdx.map((ix) => ix.reduce((x, i) => x + (Number(c.sci.items[i].max) || 0), 0)),
+  };
+  max.mt = max.m.reduce((x, y) => x + y, 0); max.st = max.s.reduce((x, y) => x + y, 0); max.tot = max.mt + max.st;
+  max.cm = max.mt * km; max.cs = max.st * ks; max.ct = max.cm + max.cs;
+  const rows = st.map((s) => {
+    const m = mIdx.map((ix) => areaScore(s.m, ix)), sc = sIdx.map((ix) => areaScore(s.s, ix));
+    const mt = sumOrDash(m), stt = sumOrDash(sc), tot = sumOrDash([mt, stt]);
+    const conv = tot === null ? null : (isNum(mt) ? mt * km : 0) + (isNum(stt) ? stt * ks : 0);
+    return { name: s.name, center: s.center, m, s: sc, mt, st: stt, tot, conv, cm: isNum(mt) ? mt * km : null, cs: isNum(stt) ? stt * ks : null };
+  });
+  // 순위·백분위 (백분위 = 석차 / 응시자 수)
+  const cols = {};
+  const addCol = (key, get) => {
+    const v = rows.map(get), rk = rankOf(v), n = v.filter(isNum).length;
+    cols[key] = { v, rk, n, pct: rk.map((r) => (r == null ? null : r / n)), avg: avg(v) };
+  };
+  mA.forEach((_, i) => addCol("m" + i, (r) => r.m[i]));
+  sA.forEach((_, i) => addCol("s" + i, (r) => r.s[i]));
+  addCol("mt", (r) => r.mt); addCol("st", (r) => r.st); addCol("tot", (r) => r.tot); addCol("conv", (r) => r.conv);
+  // 평균 (시트: 과목 평균 = 영역 평균의 합)
+  const A = { m: mA.map((_, i) => cols["m" + i].avg), s: sA.map((_, i) => cols["s" + i].avg) };
+  A.mt = sumOrDash(A.m); A.st = sumOrDash(A.s); A.tot = sumOrDash([A.mt, A.st]);
+  A.cm = isNum(A.mt) ? A.mt * km : null; A.cs = isNum(A.st) ? A.st * ks : null;
+  A.ct = A.tot > 0 ? (A.mt || 0) * km + (A.st || 0) * ks : null;
+  // 백분위 구간별 환산 평균 (5~10% … 25~30%)
+  const bands = [[.05, .10], [.10, .15], [.15, .20], [.20, .25], [.25, .30]].map(([lo, hi]) => {
+    const pick = (k, f) => avg(rows.map((r, i) => { const p = cols[k].pct[i]; return p != null && p >= lo - 1e-12 && p < hi - 1e-12 ? r[k] : null; }));
+    const am = pick("mt"), as = pick("st");
+    return { lo, hi, m: am == null ? null : am * km, s: as == null ? null : as * ks };
+  });
+  // 커트라인 백분위
+  const cuts = (c.cutoffs || []).map((x) => {
+    const pm = isNum(x.math) ? cutPct(cols.mt.v, x.math / km) : null;
+    const ps = isNum(x.sci) ? cutPct(cols.st.v, x.sci / ks) : null;
+    const t = (isNum(x.math) || isNum(x.sci)) ? (x.math || 0) + (x.sci || 0) : null;
+    const pt = t != null ? cutPct(cols.conv.v, t) : null;
+    return { name: x.name, math: x.math, sci: x.sci, tot: t, pm, ps, pt };
+  });
+  const itemAvg = { m: c.math.items.map((_, i) => avg(st.map((s) => s.m[i]))), s: c.sci.items.map((_, i) => avg(st.map((s) => s.s[i]))) };
+  return { rows, cols, A, max, bands, cuts, km, ks, mA, sA, N: rows.length, itemAvg };
+}
+function cutPct(vals, cut) { const n = vals.filter(isNum); if (!n.length) return null; return Math.min(1, (n.filter((v) => R9(v) > R9(cut)).length + 1) / n.length); }
+const f1 = (v) => (isNum(v) ? (Math.round(v * 10 + 1e-9) / 10).toFixed(1) : "-");
+const fp = (v, dash = "-") => (isNum(v) ? (Math.round(v * 1000 + 1e-9) / 10).toFixed(1) + "%" : dash);
+const fmax = (v) => (isNum(v) ? (Number.isInteger(R9(v)) ? String(R9(v)) : f1(v)) : "-");
+
+// ======================= 로그인 =======================
+let initialized = true;
+async function showLogin() {
+  $("#app").classList.add("hidden"); $("#login").classList.remove("hidden");
+  try { initialized = (await api("status")).initialized; } catch (e) { $("#lerr").textContent = e.message; }
+  $("#lpw2").classList.toggle("hidden", initialized);
+  $("#lmsg").textContent = initialized ? "관리자 비밀번호를 입력하세요." : "처음 사용입니다. 사용할 관리자 비밀번호(8자 이상)를 정하세요.";
+  $("#lbtn").textContent = initialized ? "로그인" : "비밀번호 설정";
+  $("#lpw").value = ""; $("#lpw2").value = ""; $("#lpw").focus();
+}
+async function doLogin() {
+  const pw = $("#lpw").value; $("#lerr").textContent = "";
+  try {
+    if (!initialized) {
+      if (pw.length < 8) throw new Error("8자 이상 입력하세요.");
+      if (pw !== $("#lpw2").value) throw new Error("두 비밀번호가 다릅니다.");
+      token = (await api("setup", { password: pw })).token;
+    } else token = (await api("login", { password: pw })).token;
+    sessionStorage.setItem("mock_token", token);
+    $("#login").classList.add("hidden");
+    await startApp();
+  } catch (e) { $("#lerr").textContent = e.message; }
+}
+$("#lbtn").onclick = doLogin;
+$("#lpw").onkeydown = $("#lpw2").onkeydown = (e) => { if (e.key === "Enter") doLogin(); };
+$("#btnLogout").onclick = async () => {
+  if (!(await leaveOk())) return;
+  try { await api("logout"); } catch {}
+  token = ""; sessionStorage.removeItem("mock_token"); S.exam = null; setDirty(false); showLogin();
+};
+$("#btnPw").onclick = () => {
+  const m = modal(`<h3>비밀번호 변경</h3><div style="display:flex;flex-direction:column;gap:8px">
+    <input type="password" id="pwo" placeholder="현재 비밀번호"><input type="password" id="pwn" placeholder="새 비밀번호 (8자 이상)"><input type="password" id="pwn2" placeholder="새 비밀번호 확인"></div>
+    <div class="err" id="pwe"></div><div class="row" style="justify-content:flex-end"><button id="pwc">취소</button><button class="primary" id="pwok">변경</button></div>`);
+  $("#pwc", m).onclick = () => m.remove();
+  $("#pwok", m).onclick = async () => {
+    try {
+      if ($("#pwn", m).value !== $("#pwn2", m).value) throw new Error("새 비밀번호가 서로 다릅니다.");
+      await api("changePassword", { oldPassword: $("#pwo", m).value, newPassword: $("#pwn", m).value });
+      m.remove(); toast("비밀번호를 바꿨습니다.");
+    } catch (e) { $("#pwe", m).textContent = e.message; }
+  };
+};
+
+// ======================= 시험 목록 =======================
+async function startApp() {
+  $("#app").classList.remove("hidden");
+  await loadList();
+  const last = Number(sessionStorage.getItem("mock_exam") || 0);
+  if (last && S.exams.some((e) => e.id === last)) await openExam(last, true);
+  else render();
+}
+function curYearDefault() { const d = new Date(); return d.getFullYear() + 1; }
+async function loadList() {
+  S.exams = (await api("examList")).exams;
+  const years = new Set(S.exams.map((e) => e.year));
+  const base = curYearDefault(); for (let y = 2027; y <= base + 1; y++) years.add(y);
+  const ys = [...years].sort((a, b) => b - a);
+  if (S.year == null) S.year = S.exams.length ? Math.max(...S.exams.map((e) => e.year)) : base;
+  $("#selYear").innerHTML = ys.map((y) => `<option value="${y}" ${y === S.year ? "selected" : ""}>${y}학년도 (${S.exams.filter((e) => e.year === y).length}회)</option>`).join("");
+  renderSide();
+}
+function renderSide() {
+  const list = S.exams.filter((e) => e.year === S.year).sort((a, b) => a.round - b.round);
+  $("#exList").innerHTML = list.length ? list.map((e) => `<button class="excard ${S.exam?.id === e.id ? "on" : ""}" data-id="${e.id}"><b>${e.round}차</b> <span class="muted" style="font-size:12px">${esc(e.date || "")}</span><div class="m">응시 ${e.n}명 · ${esc(e.title || "")}</div></button>`).join("")
+    : `<div class="hint">이 학년도에 시험이 없습니다.<br>[+ 새 시험 만들기]로 추가하세요.</div>`;
+}
+$("#selYear").onchange = async () => { S.year = Number($("#selYear").value); renderSide(); };
+$("#exList").onclick = async (e) => { const b = e.target.closest(".excard"); if (b) await openExam(Number(b.dataset.id)); };
+async function leaveOk() {
+  if (!S.dirty) return true;
+  return await confirmBox("저장하지 않은 변경이 있습니다.\n저장하지 않고 이동할까요?", "저장하지 않고 이동");
+}
+async function openExam(id, quiet) {
+  if (!quiet && !(await leaveOk())) return;
+  busy("시험을 불러오는 중…");
+  try {
+    const d = await api("examGet", { id });
+    S.exam = normExam(d.exam); S.backup = d.backup; S.year = S.exam.year; S.stu = -1;
+    sessionStorage.setItem("mock_exam", id);
+    setDirty(false);
+    $("#selYear").value = S.year; renderSide(); render();
+  } catch (e) { toast(e.message); } finally { busy(); }
+}
+function normExam(e) {
+  const c = e.config || {};
+  const subj = (s, def) => ({ areas: s?.areas?.length ? s.areas : def, items: (s?.items || []).map((x) => ({ no: x.no ?? "", area: x.area ?? "", max: Number(x.max) || 0 })) });
+  const config = {
+    title: c.title || "와이즈만 전국 모의고사", date: c.date || "",
+    math: subj(c.math, ["기하", "조합", "대수"]), sci: subj(c.sci, ["물리", "화학", "생명과학", "지구과학"]),
+    conv: { math: c.conv?.math ?? "1.2", sci: c.conv?.sci ?? "2/3" },
+    cutoffs: (c.cutoffs?.length ? c.cutoffs : DEF_CUTS.map((n) => ({ name: n, math: null, sci: null }))).map((x) => ({ name: x.name, math: x.math ?? null, sci: x.sci ?? null })),
+    memo: c.memo || "",
+  };
+  const nm = config.math.items.length, ns = config.sci.items.length;
+  const fix = (a, n) => Array.from({ length: n }, (_, i) => (Array.isArray(a) && isNum(a[i]) ? a[i] : null));
+  const students = (e.students || []).map((s) => ({ name: s.name || "", center: s.center || "", m: fix(s.m, nm), s: fix(s.s, ns) }));
+  return { id: e.id ?? null, year: e.year, round: e.round, config, students };
+}
+function setDirty(v) {
+  S.dirty = v;
+  let d = $("#dirtyBox");
+  if (v && !d) { d = document.createElement("div"); d.id = "dirtyBox"; d.className = "dirty"; d.innerHTML = `저장하지 않은 변경이 있습니다 <button class="small orange">저장</button>`; d.querySelector("button").onclick = save; document.body.appendChild(d); }
+  if (!v) d?.remove();
+  document.title = (v ? "● " : "") + "영재학교 모의고사 관리";
+}
+window.addEventListener("beforeunload", (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+async function save() {
+  if (!S.exam) return;
+  const ex = S.exam;
+  const names = ex.students.filter((s) => s.name.trim());
+  busy("저장 중…");
+  try {
+    const d = await api("examSave", { id: ex.id, year: ex.year, round: ex.round, config: ex.config, students: names.map((s) => ({ ...s, name: s.name.trim(), center: s.center.trim() })) });
+    setDirty(false);
+    await loadList();
+    await openExam(d.id, true);
+    toast(d.unchanged ? "바뀐 내용이 없습니다." : "저장했습니다.");
+  } catch (e) { toast(e.message, 4000); } finally { busy(); }
+}
+$("#btnSave").onclick = save;
+document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); } });
+
+$("#btnNew").onclick = async () => {
+  if (!(await leaveOk())) return;
+  const list = S.exams.filter((e) => e.year === S.year);
+  const nextRound = list.length ? Math.max(...list.map((e) => e.round)) + 1 : 1;
+  const prev = list.sort((a, b) => b.round - a.round)[0];
+  const m = modal(`<h3>새 시험 만들기</h3>
+    <div style="display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center">
+      <span class="sub">학년도</span><input id="nY" type="number" value="${S.year}">
+      <span class="sub">차수</span><input id="nR" type="number" value="${nextRound}">
+      <span class="sub">시험 이름</span><input id="nT" value="와이즈만 전국 모의고사">
+      <span class="sub">시행일</span><input id="nD" type="date">
+    </div>
+    ${prev ? `<label class="row" style="margin-top:12px"><input type="checkbox" id="nCopy"> ${prev.round}차 시험의 문항 구성·영역·배점 복사</label>` : ""}
+    <p class="hint" style="margin-top:10px">문항 구성·배점·커트라인은 만든 뒤 [시험 설정]에서 입력합니다.</p>
+    <div class="err" id="nE"></div>
+    <div class="row" style="justify-content:flex-end"><button id="nC">취소</button><button class="primary" id="nOk">만들기</button></div>`);
+  $("#nC", m).onclick = () => m.remove();
+  $("#nOk", m).onclick = async () => {
+    try {
+      let config = { title: $("#nT", m).value.trim(), date: $("#nD", m).value };
+      if (prev && $("#nCopy", m)?.checked) {
+        const p = normExam((await api("examGet", { id: prev.id })).exam).config;
+        config = { ...p, title: config.title, date: config.date, cutoffs: p.cutoffs.map((x) => ({ name: x.name, math: null, sci: null })) };
+      }
+      const d = await api("examSave", { year: Number($("#nY", m).value), round: Number($("#nR", m).value), config, students: [] });
+      m.remove(); S.year = Number($("#nY", m).value); await loadList(); await openExam(d.id, true);
+      S.tab = "config"; render(); toast("시험을 만들었습니다. 문항 구성을 입력하세요.");
+    } catch (e) { $("#nE", m).textContent = e.message; }
+  };
+};
+
+// ======================= 화면 =======================
+$("#tabs").onclick = (e) => { const b = e.target.closest(".tab"); if (b) { S.tab = b.dataset.t; render(); } };
+function render() {
+  $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.t === S.tab));
+  const ex = S.exam;
+  $("#exTitle").textContent = ex ? `${ex.year}학년도 ${ex.round}차` : "시험을 선택하세요";
+  $("#btnSave").classList.toggle("hidden", !ex);
+  const v = $("#view");
+  if (S.tab === "manage") return viewManage(v);
+  if (!ex) { v.innerHTML = `<div class="empty">왼쪽에서 학년도와 시험(차수)을 고르세요.<br>처음이면 [+ 새 시험 만들기] 또는 [시험 목록·가져오기]에서 기존 구글 시트를 가져오세요.</div>`; return; }
+  ({ input: viewInput, total: viewTotal, rank: viewRank, report: viewReport, config: viewConfig })[S.tab](v);
+}
+
+// ---------- 성적 입력 ----------
+function centersOf(ex) { return [...new Set(ex.students.map((s) => s.center.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")); }
+function viewInput(v) {
+  const ex = S.exam, c = ex.config, mi = c.math.items, si = c.sci.items;
+  if (!mi.length && !si.length) { v.innerHTML = `<div class="empty">문항 구성이 없습니다. [시험 설정]에서 문항번호·영역·배점을 먼저 입력하세요.</div>`; return; }
+  while (ex.students.length < 1 || ex.students[ex.students.length - 1].name) ex.students.push(blankStu());
+  const mA = c.math.areas, sA = c.sci.areas;
+  const head = `<thead>
+   <tr><th class="stk" style="left:0" rowspan="4">NO</th><th class="stk" style="left:38px" rowspan="4">이름</th><th class="stk" style="left:138px" rowspan="4">센터</th><th>문항</th>
+     ${mi.map((it) => `<th class="m">${esc(it.no)}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.no)}</th>`).join("")}
+     ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}<th class="m">수학 계</th>${sA.map((a) => `<th class="s">${esc(a)}</th>`).join("")}<th class="s">과학 계</th><th>총계</th></tr>
+   <tr><th>영역</th>${mi.map((it) => `<th class="m">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.area.slice(0, 1))}</th>`).join("")}<th colspan="${mA.length + sA.length + 3}">자동 계산</th></tr>
+   <tr><th>만점</th>${mi.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${si.map((it) => `<th>${fmax(it.max)}</th>`).join("")}<th colspan="${mA.length + sA.length + 3}" id="maxRow"></th></tr>
+   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}"></th>`).join("")}<th colspan="${mA.length + sA.length + 3}" id="avgRow"></th></tr></thead>`;
+  const body = ex.students.map((s, r) => rowHtml(s, r)).join("");
+  v.innerHTML = `<div class="row noprint" style="margin-bottom:12px">
+      <div class="kpis"><div class="kpi"><div class="k">입력 학생</div><div class="v" id="kN"></div></div><div class="kpi"><div class="k">센터</div><div class="v" id="kC"></div></div></div>
+      <div class="grow"></div>
+      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 엑셀에서 이름·센터·점수 영역을 복사해 이름 칸에 붙여넣으면 한 번에 들어갑니다. 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점 초과는 빨간색.</div>
+      <button class="small" id="addRows">+ 10줄</button></div>
+    <div class="tw" id="gridWrap"><table class="g" id="grid">${head}<tbody>${body}</tbody></table></div>`;
+  refreshAll();
+  const grid = $("#grid");
+  grid.addEventListener("input", onGridInput);
+  grid.addEventListener("keydown", onGridKey);
+  grid.addEventListener("paste", onGridPaste);
+  $("#addRows").onclick = () => { for (let i = 0; i < 10; i++) ex.students.push(blankStu()); viewInput(v); };
+}
+function blankStu() { const c = S.exam.config; return { name: "", center: "", m: c.math.items.map(() => null), s: c.sci.items.map(() => null) }; }
+function rowHtml(s, r) {
+  const fmt = (x) => (isNum(x) ? String(x) : "");
+  return `<tr data-r="${r}"><td class="stk" style="left:0;width:38px;min-width:38px;color:var(--muted)">${r + 1}</td>
+    <td class="stk nm" style="left:38px;min-width:100px;width:100px"><input data-c="0" value="${esc(s.name)}"></td>
+    <td class="stk nm" style="left:138px;min-width:80px;width:80px"><input data-c="1" value="${esc(s.center)}"></td><td></td>
+    ${s.m.map((x, i) => `<td style="min-width:38px"><input data-c="${2 + i}" value="${fmt(x)}"></td>`).join("")}
+    ${s.s.map((x, i) => `<td style="min-width:38px"><input data-c="${2 + s.m.length + i}" value="${fmt(x)}"></td>`).join("")}
+    ${autoCells(s)}</tr>`;
+}
+function stuCalc(s) {
+  const c = S.exam.config;
+  const area = (items, vals, a) => { const v = items.map((it, i) => (it.area === a ? vals[i] : null)).filter(isNum); return v.length ? v.reduce((x, y) => x + y, 0) : null; };
+  const m = c.math.areas.map((a) => area(c.math.items, s.m, a)), sc = c.sci.areas.map((a) => area(c.sci.items, s.s, a));
+  const mt = sumOrDash(m), st = sumOrDash(sc);
+  return { m, s: sc, mt, st, tot: sumOrDash([mt, st]) };
+}
+function autoCells(s) {
+  if (!s.name) return `<td class="auto" colspan="${S.exam.config.math.areas.length + S.exam.config.sci.areas.length + 3}"></td>`;
+  const k = stuCalc(s);
+  return [...k.m.map(f1), f1(k.mt), ...k.s.map(f1), f1(k.st), f1(k.tot)].map((x) => `<td class="auto">${x}</td>`).join("");
+}
+function cellRef(r, c) { return $(`#grid tr[data-r="${r}"] input[data-c="${c}"]`); }
+function setCell(r, c, raw) {
+  const ex = S.exam, s = ex.students[r], nm = s.m.length;
+  const t = String(raw ?? "").trim();
+  if (c === 0) s.name = t; else if (c === 1) s.center = t;
+  else {
+    const n = t === "" ? null : Number(t.replace(/,/g, ""));
+    const val = t === "" || !Number.isFinite(n) ? null : n;
+    if (c - 2 < nm) s.m[c - 2] = val; else s.s[c - 2 - nm] = val;
+  }
+}
+function onGridInput(e) {
+  const inp = e.target; if (!inp.dataset.c) return;
+  const r = Number(inp.closest("tr").dataset.r), c = Number(inp.dataset.c);
+  setCell(r, c, inp.value); setDirty(true);
+  refreshRow(r);
+  if (c <= 1) refreshDup();
+  refreshStats();
+  const ex = S.exam;
+  if (r === ex.students.length - 1 && ex.students[r].name) { ex.students.push(blankStu()); $("#grid tbody").insertAdjacentHTML("beforeend", rowHtml(ex.students[r + 1], r + 1)); }
+}
+function refreshRow(r) {
+  const tr = $(`#grid tr[data-r="${r}"]`); if (!tr) return;
+  $$("td.auto", tr).forEach((td) => td.remove());
+  tr.insertAdjacentHTML("beforeend", autoCells(S.exam.students[r]));
+  const c = S.exam.config, all = [...c.math.items, ...c.sci.items];
+  $$("input", tr).forEach((inp) => {
+    const k = Number(inp.dataset.c); if (k < 2) return;
+    const raw = inp.value.trim(), n = Number(raw), it = all[k - 2];
+    inp.parentElement.classList.toggle("over", raw !== "" && (!Number.isFinite(n) || n < 0 || n > it.max + 1e-9));
+  });
+}
+function refreshDup() {
+  const cnt = {}; S.exam.students.forEach((s) => { if (s.name) cnt[s.name] = (cnt[s.name] || 0) + 1; });
+  $$("#grid td.nm input[data-c='0']").forEach((inp) => inp.parentElement.classList.toggle("dup", cnt[inp.value.trim()] > 1));
+}
+function refreshStats() {
+  const ex = S.exam, k = calc(ex);
+  k.itemAvg.m.forEach((a, i) => { const el = $("#am" + i); if (el) el.textContent = f1(a); });
+  k.itemAvg.s.forEach((a, i) => { const el = $("#as" + i); if (el) el.textContent = f1(a); });
+  $("#maxRow").textContent = `만점  수학 ${fmax(k.max.mt)} (${k.mA.map((a, i) => a + " " + fmax(k.max.m[i])).join(" · ")})  /  과학 ${fmax(k.max.st)} (${k.sA.map((a, i) => a + " " + fmax(k.max.s[i])).join(" · ")})  /  총 ${fmax(k.max.tot)}`;
+  $("#avgRow").textContent = `평균  수학 ${f1(k.A.mt)}  /  과학 ${f1(k.A.st)}  /  총 ${f1(k.A.tot)}`;
+  $("#kN").textContent = k.N + "명"; $("#kC").textContent = centersOf(ex).length + "곳";
+}
+function refreshAll() { S.exam.students.forEach((_, r) => refreshRow(r)); refreshDup(); refreshStats(); }
+function onGridKey(e) {
+  const inp = e.target; if (!inp.dataset?.c) return;
+  const r = Number(inp.closest("tr").dataset.r), c = Number(inp.dataset.c);
+  let to = null;
+  if (e.key === "Enter" || e.key === "ArrowDown") to = [r + 1, c];
+  else if (e.key === "ArrowUp") to = [r - 1, c];
+  else if (e.key === "ArrowRight" && inp.selectionStart === inp.value.length) to = [r, c + 1];
+  else if (e.key === "ArrowLeft" && inp.selectionStart === 0) to = [r, c - 1];
+  if (to) { const t = cellRef(...to); if (t) { e.preventDefault(); t.focus(); t.select(); } }
+}
+function onGridPaste(e) {
+  const inp = e.target; if (!inp.dataset?.c) return;
+  const text = e.clipboardData.getData("text/plain");
+  if (!/[\t\n]/.test(text.replace(/\n$/, ""))) return; // 한 칸 붙여넣기는 기본 동작
+  e.preventDefault();
+  const lines = text.replace(/\r/g, "").replace(/\n$/, "").split("\n").map((l) => l.split("\t"));
+  const ex = S.exam, r0 = Number(inp.closest("tr").dataset.r), c0 = Number(inp.dataset.c);
+  const ncol = 2 + ex.config.math.items.length + ex.config.sci.items.length;
+  while (ex.students.length < r0 + lines.length + 1) ex.students.push(blankStu());
+  lines.forEach((cells, i) => cells.forEach((v, j) => { if (c0 + j < ncol) setCell(r0 + i, c0 + j, v); }));
+  setDirty(true); viewInput($("#view")); toast(`${lines.length}줄을 붙여넣었습니다.`);
+}
+
+// ---------- 시험 설정 ----------
+function viewConfig(v) {
+  const ex = S.exam, c = ex.config;
+  const itemRows = (key) => c[key].items.map((it, i) => `<tr><td class="muted">${i + 1}</td>
+      <td><input data-k="${key}" data-i="${i}" data-f="no" value="${esc(it.no)}"></td>
+      <td><select data-k="${key}" data-i="${i}" data-f="area">${c[key].areas.map((a) => `<option ${a === it.area ? "selected" : ""}>${esc(a)}</option>`).join("")}${c[key].areas.includes(it.area) ? "" : `<option selected>${esc(it.area)}</option>`}</select></td>
+      <td><input data-k="${key}" data-i="${i}" data-f="max" type="number" step="0.5" value="${it.max}"></td>
+      <td><button class="small ghost" data-del="${key}" data-i="${i}" title="문항 삭제(입력된 점수도 함께 삭제)">✕</button></td></tr>`).join("");
+  const subjCard = (key, label) => {
+    const k = calc(ex);
+    const mx = key === "math" ? k.max.m : k.max.s, areas = c[key].areas;
+    return `<div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">${label} 문항 (${c[key].items.length}문항 · 만점 ${fmax(key === "math" ? k.max.mt : k.max.st)})</h3><div class="grow"></div>
+      <button class="small" data-bulk="${key}">한꺼번에 입력</button><button class="small" data-add="${key}">+ 문항</button></div>
+      <div class="hint" style="margin-bottom:8px">영역: ${areas.map((a, i) => `${esc(a)} ${fmax(mx[i])}점`).join(" · ")}</div>
+      <div class="tw" style="max-height:420px"><table class="v itemtbl"><thead><tr><th style="width:40px">#</th><th>문항번호</th><th>영역</th><th style="width:90px">배점</th><th style="width:40px"></th></tr></thead><tbody>${itemRows(key)}</tbody></table></div></div>`;
+  };
+  v.innerHTML = `<div class="grid2">
+    <div class="card"><h3>기본 정보</h3>
+      <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center">
+        <span class="sub">학년도</span><input id="cY" type="number" value="${ex.year}">
+        <span class="sub">차수</span><input id="cR" type="number" value="${ex.round}">
+        <span class="sub">시험 이름</span><input id="cT" value="${esc(c.title)}">
+        <span class="sub">시행일</span><input id="cD" type="date" value="${esc(c.date)}">
+        <span class="sub">수학 환산 비율</span><input id="cKm" value="${esc(c.conv.math)}">
+        <span class="sub">과학 환산 비율</span><input id="cKs" value="${esc(c.conv.sci)}">
+      </div>
+      <p class="hint" style="margin-top:8px">환산 비율은 1.2, 2/3처럼 입력합니다. 성적표 제목: [ ${ex.year}학년도 영재학교 대비 ] ${esc(c.title)} [${ex.round}차] 결과표</p>
+      <div style="margin-top:12px"><div class="lab">메모</div><textarea id="cM" rows="2">${esc(c.memo)}</textarea></div>
+    </div>
+    <div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">학교별 합격 커트라인(예상, 환산 점수)</h3><div class="grow"></div><button class="small" id="cutAdd">+ 줄</button></div>
+      <table class="v itemtbl"><thead><tr><th>구분</th><th style="width:110px">수학 환산</th><th style="width:110px">과학 환산</th><th style="width:90px">환산 총점</th><th style="width:40px"></th></tr></thead>
+      <tbody>${c.cutoffs.map((x, i) => `<tr><td><input data-cut="${i}" data-f="name" value="${esc(x.name)}"></td><td><input data-cut="${i}" data-f="math" type="number" step="0.1" value="${x.math ?? ""}"></td><td><input data-cut="${i}" data-f="sci" type="number" step="0.1" value="${x.sci ?? ""}"></td><td class="muted">${isNum(x.math) || isNum(x.sci) ? f1((x.math || 0) + (x.sci || 0)) : "-"}</td><td><button class="small ghost" data-cutdel="${i}">✕</button></td></tr>`).join("")}</tbody></table>
+      <p class="hint" style="margin-top:8px">백분위는 이 시험 응시자 분포로 자동 계산됩니다.</p>
+      <div style="margin-top:14px"><div class="lab">영역 이름 (쉼표로 구분, 순서대로 성적표에 표시)</div>
+        <div class="row"><span class="sub" style="width:40px">수학</span><input class="grow" id="aM" value="${esc(c.math.areas.join(", "))}"></div>
+        <div class="row" style="margin-top:6px"><span class="sub" style="width:40px">과학</span><input class="grow" id="aS" value="${esc(c.sci.areas.join(", "))}"></div></div>
+    </div>
+    ${subjCard("math", "수학")}${subjCard("sci", "과학")}</div>`;
+  const ch = () => setDirty(true);
+  $("#cY").onchange = (e) => { ex.year = Number(e.target.value); ch(); render(); };
+  $("#cR").onchange = (e) => { ex.round = Number(e.target.value); ch(); render(); };
+  $("#cT").oninput = (e) => { c.title = e.target.value; ch(); };
+  $("#cD").onchange = (e) => { c.date = e.target.value; ch(); };
+  $("#cKm").oninput = (e) => { c.conv.math = e.target.value; ch(); };
+  $("#cKs").oninput = (e) => { c.conv.sci = e.target.value; ch(); };
+  $("#cM").oninput = (e) => { c.memo = e.target.value; ch(); };
+  const setAreas = (key, val) => { const a = val.split(",").map((x) => x.trim()).filter(Boolean); if (a.length) { c[key].areas = a; ch(); viewConfig(v); } };
+  $("#aM").onchange = (e) => setAreas("math", e.target.value);
+  $("#aS").onchange = (e) => setAreas("sci", e.target.value);
+  v.oninput = (e) => {
+    const t = e.target;
+    if (t.dataset.cut != null) { const x = c.cutoffs[Number(t.dataset.cut)]; x[t.dataset.f] = t.dataset.f === "name" ? t.value : (t.value === "" ? null : Number(t.value)); ch(); }
+    else if (t.dataset.k && t.dataset.f !== "area") { const it = c[t.dataset.k].items[Number(t.dataset.i)]; it[t.dataset.f] = t.dataset.f === "max" ? Number(t.value) || 0 : t.value; ch(); }
+  };
+  v.onchange = (e) => {
+    const t = e.target;
+    if (t.dataset.k && t.dataset.f === "area") { c[t.dataset.k].items[Number(t.dataset.i)].area = t.value; ch(); viewConfig(v); }
+    else if (t.dataset.cut != null || (t.dataset.k && t.dataset.f === "max")) viewConfig(v);
+  };
+  v.onclick = async (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "cutAdd") { c.cutoffs.push({ name: "", math: null, sci: null }); ch(); viewConfig(v); }
+    else if (t.dataset.cutdel != null) { c.cutoffs.splice(Number(t.dataset.cutdel), 1); ch(); viewConfig(v); }
+    else if (t.dataset.add) { addItems(t.dataset.add, [{ no: "", area: c[t.dataset.add].areas[0], max: 0 }]); viewConfig(v); }
+    else if (t.dataset.del) {
+      const key = t.dataset.del, i = Number(t.dataset.i);
+      const used = ex.students.some((s) => isNum((key === "math" ? s.m : s.s)[i]));
+      if (used && !(await confirmBox("이 문항에 입력된 학생 점수도 함께 지워집니다. 삭제할까요?", "삭제"))) return;
+      c[key].items.splice(i, 1); ex.students.forEach((s) => (key === "math" ? s.m : s.s).splice(i, 1)); ch(); viewConfig(v);
+    } else if (t.dataset.bulk) bulkItems(t.dataset.bulk);
+  };
+}
+function addItems(key, items) {
+  const ex = S.exam; ex.config[key].items.push(...items);
+  ex.students.forEach((s) => (key === "math" ? s.m : s.s).push(...items.map(() => null))); setDirty(true);
+}
+function bulkItems(key) {
+  const c = S.exam.config[key];
+  const m = modal(`<h3>${key === "math" ? "수학" : "과학"} 문항 한꺼번에 입력</h3>
+    <p class="hint">기존 시트처럼 3줄(문항번호 / 영역 / 배점)을 복사해 붙여넣거나, 한 줄에 "문항번호 영역 배점"을 적으세요. 영역은 첫 글자(대·조·기 / 물·화·생·지)도 됩니다.</p>
+    <textarea id="bk" rows="10" placeholder="1-1\t1-2\t1-3&#10;대\t대\t대&#10;3\t4\t5"></textarea>
+    <label class="row" style="margin-top:8px"><input type="radio" name="bm" value="replace" checked> 기존 문항을 모두 바꾸기</label>
+    <label class="row"><input type="radio" name="bm" value="append"> 뒤에 추가</label>
+    <div class="err" id="bkE"></div><div class="row" style="justify-content:flex-end"><button id="bkC">취소</button><button class="primary" id="bkOk">적용</button></div>`, true);
+  $("#bkC", m).onclick = () => m.remove();
+  $("#bkOk", m).onclick = async () => {
+    const lines = $("#bk", m).value.replace(/\r/g, "").split("\n").filter((l) => l.trim());
+    let items = [];
+    const toArea = (a) => { a = String(a).trim(); const full = c.areas.find((x) => x === a) || c.areas.find((x) => x[0] === a[0]) || AREA_MAP[a[0]]; return full || a; };
+    if (lines.length === 3 && lines[0].includes("\t")) {
+      const [a, b, d] = lines.map((l) => l.split("\t"));
+      items = a.map((no, i) => ({ no: no.trim(), area: toArea(b[i] || ""), max: Number(d[i]) || 0 })).filter((x) => x.no);
+    } else items = lines.map((l) => l.trim().split(/[\t ,]+/)).map(([no, ar, mx]) => ({ no, area: toArea(ar || ""), max: Number(mx) || 0 }));
+    if (!items.length) { $("#bkE", m).textContent = "입력된 문항이 없습니다."; return; }
+    const ex = S.exam;
+    if ($('input[name="bm"]:checked', m).value === "replace") {
+      const has = ex.students.some((s) => (key === "math" ? s.m : s.s).some(isNum));
+      if (has && !(await confirmBox("이미 입력된 학생 점수가 있습니다. 문항을 바꾸면 같은 순서 칸의 점수는 유지되고 남는 칸은 지워집니다. 계속할까요?", "계속"))) return;
+      c.items = items;
+      ex.students.forEach((s) => { const a = key === "math" ? s.m : s.s; const n = Array.from({ length: items.length }, (_, i) => (isNum(a[i]) ? a[i] : null)); if (key === "math") s.m = n; else s.s = n; });
+      setDirty(true);
+    } else addItems(key, items);
+    m.remove(); viewConfig($("#view")); toast(`${items.length}문항을 적용했습니다.`);
+  };
+}
+
+// ---------- 종합성적 ----------
+function centerFilter(ex) {
+  const cs = centersOf(ex);
+  return `<select id="fCenter"><option value="">전체 센터</option>${cs.map((c) => `<option ${c === S.center ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>`;
+}
+function viewTotal(v) {
+  const ex = S.exam, k = calc(ex);
+  if (!k.N) { v.innerHTML = `<div class="empty">입력된 학생이 없습니다.</div>`; return; }
+  const keys = [...k.mA.map((a, i) => ["m" + i, a, k.max.m[i]]), ["mt", "수학 계", k.max.mt], ...k.sA.map((a, i) => ["s" + i, a, k.max.s[i]]), ["st", "과학 계", k.max.st], ["tot", "총점", k.max.tot], ["conv", "환산 점수", k.max.ct]];
+  const avgOf = (key) => (key === "mt" ? k.A.mt : key === "st" ? k.A.st : key === "tot" ? k.A.tot : key === "conv" ? k.A.ct : k.cols[key].avg);
+  const idx = k.rows.map((_, i) => i).filter((i) => !S.center || k.rows[i].center === S.center);
+  v.innerHTML = `<div class="row" style="margin-bottom:12px">${centerFilter(ex)}<span class="hint">석차·백분위는 전체(전 센터) 기준입니다.</span><div class="grow"></div><button class="small" id="xls">엑셀로 저장</button></div>
+   <div class="card" style="margin-bottom:14px"><h3>백분위 구간별 환산 점수 평균</h3>
+     <table class="v"><thead><tr><th>구분</th>${k.bands.map((b) => `<th>${Math.round(b.lo * 100)}~${Math.round(b.hi * 100)}%</th>`).join("")}</tr></thead>
+     <tbody><tr><td>수학 환산</td>${k.bands.map((b) => `<td>${f1(b.m)}</td>`).join("")}</tr><tr><td>과학 환산</td>${k.bands.map((b) => `<td>${f1(b.s)}</td>`).join("")}</tr></tbody></table></div>
+   <div class="tw"><table class="v"><thead><tr><th>No</th><th>이름</th><th>센터</th>${keys.map(([, l]) => `<th colspan="3">${esc(l)}</th>`).join("")}</tr></thead>
+   <tbody><tr style="color:var(--muted)"><td></td><td>만점/평균</td><td></td>${keys.map(([key, , mx]) => `<td>${fmax(mx)}</td><td colspan="2">평균 ${f1(avgOf(key))}</td>`).join("")}</tr>
+   ${idx.map((i, n) => { const r = k.rows[i]; return `<tr><td>${n + 1}</td><td class="l">${esc(r.name)}</td><td>${esc(r.center)}</td>${keys.map(([key]) => { const col = k.cols[key]; return `<td>${f1(col.v[i])}</td><td class="muted">${col.rk[i] ?? "미응시"}</td><td class="muted">${fp(col.pct[i], "미응시")}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>`;
+  $("#fCenter").onchange = (e) => { S.center = e.target.value; viewTotal(v); };
+  $("#xls").onclick = async () => {
+    await needXLSX();
+    const aoa = [["No", "이름", "센터", ...keys.flatMap(([, l]) => [l, l + " 석차", l + " 백분위"])]];
+    idx.forEach((i, n) => { const r = k.rows[i]; aoa.push([n + 1, r.name, r.center, ...keys.flatMap(([key]) => { const col = k.cols[key]; return [isNum(col.v[i]) ? +f1(col.v[i]) : "-", col.rk[i] ?? "미응시", fp(col.pct[i], "미응시")]; })]); });
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "종합성적");
+    XLSX.writeFile(wb, `${ex.year}학년도 ${ex.round}차 종합성적${S.center ? "_" + S.center : ""}.xlsx`);
+  };
+}
+
+// ---------- 순위별 정리 ----------
+function viewRank(v) {
+  const ex = S.exam, k = calc(ex);
+  if (!k.N) { v.innerHTML = `<div class="empty">입력된 학생이 없습니다.</div>`; return; }
+  const by = { mt: "수학 석차", st: "과학 석차", tot: "총점(종합) 석차", conv: "환산 석차" };
+  const col = k.cols[S.rankBy];
+  const idx = k.rows.map((_, i) => i).filter((i) => col.rk[i] != null && (!S.center || k.rows[i].center === S.center))
+    .sort((a, b) => col.rk[a] - col.rk[b] || k.rows[a].name.localeCompare(k.rows[b].name, "ko"));
+  const c3 = (key, i) => `<td>${f1(k.cols[key].v[i])}</td><td class="muted">${k.cols[key].rk[i] ?? "-"}</td><td class="muted">${fp(k.cols[key].pct[i])}</td>`;
+  v.innerHTML = `<div class="row" style="margin-bottom:12px"><span class="sub">기준</span><select id="rBy">${Object.entries(by).map(([key, l]) => `<option value="${key}" ${key === S.rankBy ? "selected" : ""}>${l}</option>`).join("")}</select>
+      ${centerFilter(ex)}<span class="hint">미응시 학생은 제외됩니다. 순위는 전체 기준입니다.</span><div class="grow"></div><button class="small" id="xls">엑셀로 저장</button></div>
+    <div class="tw"><table class="v"><thead><tr><th>기준 순위</th><th>이름</th><th>센터</th><th colspan="3">수학 (점수·순위·백분위)</th><th colspan="3">과학</th><th colspan="3">총점</th><th colspan="3">환산 점수</th></tr></thead>
+    <tbody>${idx.map((i) => `<tr><td><b>${col.rk[i]}</b></td><td class="l">${esc(k.rows[i].name)}</td><td>${esc(k.rows[i].center)}</td>${c3("mt", i)}${c3("st", i)}${c3("tot", i)}${c3("conv", i)}</tr>`).join("")}</tbody></table></div>`;
+  $("#rBy").onchange = (e) => { S.rankBy = e.target.value; viewRank(v); };
+  $("#fCenter").onchange = (e) => { S.center = e.target.value; viewRank(v); };
+  $("#xls").onclick = async () => {
+    await needXLSX();
+    const aoa = [["기준 순위", "이름", "센터", "수학", "수학 순위", "수학 백분위", "과학", "과학 순위", "과학 백분위", "총점", "총점 순위", "총점 백분위", "환산", "환산 순위", "환산 백분위"]];
+    idx.forEach((i) => aoa.push([col.rk[i], k.rows[i].name, k.rows[i].center, ...["mt", "st", "tot", "conv"].flatMap((key) => [isNum(k.cols[key].v[i]) ? +f1(k.cols[key].v[i]) : "-", k.cols[key].rk[i] ?? "-", fp(k.cols[key].pct[i])])]));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "순위");
+    XLSX.writeFile(wb, `${ex.year}학년도 ${ex.round}차 ${by[S.rankBy]}${S.center ? "_" + S.center : ""}.xlsx`);
+  };
+}
+
+// ---------- 성적표 ----------
+function reportHtml(ex, k, i) {
+  const r = k.rows[i], c = ex.config;
+  const mA = k.mA, sA = k.sA;
+  const val = (key) => k.cols[key].v[i], pct = (key) => fp(k.cols[key].pct[i], "미응시"), rk = (key) => k.cols[key].rk[i];
+  const head = `<tr><th rowspan="2">구분</th><th colspan="${mA.length + 1}">[수학] 점수</th><th colspan="${sA.length + 1}">[과학] 점수</th><th rowspan="2">[종합]<br>점수</th></tr>
+    <tr>${mA.map((a) => `<th>${esc(a)}</th>`).join("")}<th>수학 계</th>${sA.map((a) => `<th>${esc(a)}</th>`).join("")}<th>과학 계</th></tr>`;
+  const line = (label, arr, cls = "") => `<tr class="${cls}"><th class="rh">${label}</th>${arr.map((x) => `<td>${x}</td>`).join("")}</tr>`;
+  const mKeys = mA.map((_, j) => "m" + j), sKeys = sA.map((_, j) => "s" + j);
+  const allKeys = [...mKeys, "mt", ...sKeys, "st", "tot"];
+  const maxes = [...k.max.m, k.max.mt, ...k.max.s, k.max.st, k.max.tot].map(fmax);
+  const avgs = [...k.A.m, k.A.mt, ...k.A.s, k.A.st, k.A.tot].map(f1);
+  const mine = allKeys.map((key) => f1(val(key)));
+  const pcts = allKeys.map(pct);
+  const cm = r.cm, cs = r.cs;
+  const rkStr = (key) => (rk(key) == null ? "미응시" : `${rk(key)} / ${k.N}`);
+  const cutRows = k.cuts.map((x) => `<tr><th class="rh" rowspan="2">${esc(x.name)}</th><th class="rh">점수</th><td>${f1(x.math)}</td><td>${f1(x.sci)}</td><td>${f1(x.tot)}</td></tr>
+     <tr><th class="rh">백분위</th><td>${fp(x.pm)}</td><td>${fp(x.ps)}</td><td>${fp(x.pt)}</td></tr>`).join("");
+  return `<div class="rp">
+   <div class="t1">[ ${ex.year}학년도 영재학교 대비 ]</div>
+   <div class="t2">${esc(c.title)} [${ex.round}차] 결과표</div>
+   <div class="row" style="align-items:flex-end"><div class="sec" style="margin:0">▶ 학생 기초 정보</div><div class="grow"></div>
+     <table style="width:320px"><tr><th class="rh" style="width:90px">센터명</th><td>${esc(r.center)}</td><th class="rh" style="width:90px">학생명</th><td><b>${esc(r.name)}</b></td></tr></table></div>
+   <div class="sec">▶ 성취도 점수</div>
+   <table><thead>${head}</thead><tbody>${line("만점", maxes)}${line("전체 평균", avgs)}${line("개인 점수", mine, "me")}${line("백분위", pcts)}</tbody></table>
+   <div class="note">▷ [수학] 점수는 ${mA.join(", ")}의 각 영역 점수를 합한 점수입니다.<br>▷ [과학] 점수는 ${sA.join(", ")} 각 영역 점수를 합한 점수입니다.<br>▷ [종합] 점수는 수학·과학 점수를 합산한 점수입니다. 수학·과학 중 1개의 과목만 응시한 경우 응시과목 점수만 나타납니다.</div>
+   <div class="two">
+     <div><div class="sec">▶ 환산 점수</div>
+       <table><thead><tr><th>구분</th><th>수학 환산</th><th>과학 환산</th><th>환산 총점</th></tr></thead><tbody>
+       ${line("만점", [fmax(k.max.cm), fmax(k.max.cs), fmax(k.max.ct)])}
+       ${line("전체 평균", [f1(k.A.cm), f1(k.A.cs), f1(k.A.ct)])}
+       ${line("개인 점수", [f1(cm), f1(cs), f1(val("conv"))], "me")}
+       ${line("백분위", [pct("mt"), pct("st"), pct("conv")])}
+       ${line("석차", [rkStr("mt"), rkStr("st"), rkStr("conv")])}</tbody></table>
+       <div class="note">▷ 환산 점수는 수학과 과학의 비율을 조정한 점수입니다.</div></div>
+     <div><div class="sec">▶ 환산 점수 기준 학교별 합격 커트라인(예상)</div>
+       <table><thead><tr><th colspan="2">구분</th><th>수학 환산</th><th>과학 환산</th><th>환산 총점</th></tr></thead><tbody>${cutRows || `<tr><td colspan="5">-</td></tr>`}</tbody></table>
+       <div class="note">▷ 합격 커트라인(예상)은 합격선 가이드입니다.<br>▷ 자기소개서, 생활기록부, 캠프, 면접 등을 반영하지 않았기에 현 성취도 결과만으로 최종합격 여부를 보장하지는 않습니다.</div></div>
+   </div>
+   <div class="sec">▶ 성취도 그래프 (환산 점수 기준)</div>
+   <div class="chartbox"><canvas width="700" height="230"></canvas></div>
+   <div class="foot"><span>${esc(c.title)} ${ex.round}차${c.date ? " · " + esc(c.date) : ""}</span><span>${esc(r.center)} · ${esc(r.name)}</span></div>
+  </div>`;
+}
+function drawChart(el, k, i) {
+  const r = k.rows[i];
+  const cv = el.querySelector("canvas");
+  const z = (x) => (isNum(x) ? Math.round(x * 10) / 10 : 0);
+  return new Chart(cv, {
+    type: "bar",
+    data: { labels: ["수학 환산", "과학 환산", "환산 총점"], datasets: [
+      { label: "만점", data: [k.max.cm, k.max.cs, k.max.ct].map(z), backgroundColor: "#d6d9ec" },
+      { label: "전체 평균", data: [k.A.cm, k.A.cs, k.A.ct].map(z), backgroundColor: "#8fa8f0" },
+      { label: "개인 점수", data: [r.cm, r.cs, r.conv].map(z), backgroundColor: "#6d5ce8" }] },
+    options: { responsive: false, animation: false, devicePixelRatio: 2,
+      plugins: { legend: { position: "bottom", labels: { color: "#333", font: { size: 12 } } } },
+      scales: { x: { ticks: { color: "#333" }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: "#555" }, grid: { color: "#eceef5" } } } },
+    plugins: [{ id: "vals", afterDatasetsDraw(ch) { const g = ch.ctx; g.save(); g.font = "11px Malgun Gothic, sans-serif"; g.fillStyle = "#333"; g.textAlign = "center";
+      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => g.fillText(d.data[j].toFixed(1), b.x, b.y - 4))); g.restore(); } }],
+  });
+}
+function viewReport(v) {
+  const ex = S.exam, k = calc(ex);
+  if (!k.N) { v.innerHTML = `<div class="empty">입력된 학생이 없습니다.</div>`; return; }
+  if (S.stu >= k.N) S.stu = -1;
+  const idx = k.rows.map((_, i) => i).filter((i) => !S.center || k.rows[i].center === S.center);
+  if (S.stu < 0 || !idx.includes(S.stu)) S.stu = idx[0] ?? 0;
+  const cnt = {}; k.rows.forEach((r) => (cnt[r.name] = (cnt[r.name] || 0) + 1));
+  v.innerHTML = `<div class="row noprint" style="margin-bottom:8px">${centerFilter(ex)}
+      <input id="stuQ" list="stuL" placeholder="학생 이름 입력" style="width:200px"><datalist id="stuL">${idx.map((i) => `<option value="${esc(k.rows[i].name)}${cnt[k.rows[i].name] > 1 ? " (" + esc(k.rows[i].center) + ")" : ""}">`).join("")}</datalist>
+      <select id="stuS">${idx.map((i) => `<option value="${i}" ${i === S.stu ? "selected" : ""}>${esc(k.rows[i].name)} (${esc(k.rows[i].center)})</option>`).join("")}</select>
+      <button class="small" id="prev">◀</button><button class="small" id="next">▶</button>
+      <div class="grow"></div>
+      <button id="prt">인쇄</button><button class="orange" id="pdf1">PDF로 저장</button><button class="primary" id="zip">일괄 PDF (ZIP)</button></div>
+    <div class="rpwrap" id="rpw">${reportHtml(ex, k, S.stu)}</div>`;
+  drawChart($("#rpw"), k, S.stu);
+  const go = (i) => { S.stu = i; viewReport(v); };
+  $("#stuS").onchange = (e) => go(Number(e.target.value));
+  $("#stuQ").onchange = (e) => {
+    const q = e.target.value.trim(); const m = q.match(/^(.*?) \((.*)\)$/);
+    const i = idx.find((j) => (m ? k.rows[j].name === m[1] && k.rows[j].center === m[2] : k.rows[j].name === q));
+    if (i != null) go(i); else toast("해당 이름의 학생이 없습니다.");
+  };
+  $("#prev").onclick = () => { const p = idx.indexOf(S.stu); if (p > 0) go(idx[p - 1]); };
+  $("#next").onclick = () => { const p = idx.indexOf(S.stu); if (p < idx.length - 1) go(idx[p + 1]); };
+  $("#fCenter").onchange = (e) => { S.center = e.target.value; S.stu = -1; viewReport(v); };
+  $("#prt").onclick = () => window.print();
+  $("#pdf1").onclick = async () => {
+    busy("PDF 만드는 중…");
+    try { const blob = await pdfOf(ex, k, S.stu); download(blob, pdfName(ex, k.rows[S.stu])); } catch (e) { toast(e.message, 4000); } finally { busy(); }
+  };
+  $("#zip").onclick = () => zipAll(ex, k, idx);
+}
+const pdfName = (ex, r) => safeName(`${ex.config.title} [${ex.round}차] 결과표 [${r.center}] ${r.name}.pdf`);
+async function pdfOf(ex, k, i) {
+  await needPDF();
+  const st = $("#rpStage"); st.innerHTML = reportHtml(ex, k, i);
+  const ch = drawChart(st, k, i);
+  try {
+    const node = st.firstElementChild;
+    const canvas = await htmlToImage.toCanvas(node, { pixelRatio: 2, backgroundColor: "#ffffff", skipFonts: true, width: 794, height: 1123 });
+    const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+    return pdf.output("blob");
+  } finally { ch.destroy(); st.innerHTML = ""; }
+}
+async function zipAll(ex, k, idx) {
+  if (!idx.length) return;
+  if (!(await confirmBox(`${S.center || "전체 센터"} 학생 ${idx.length}명의 성적표 PDF를 만들어 ZIP 파일로 내려받습니다.\n${S.dirty ? "※ 저장하지 않은 변경 내용도 반영됩니다.\n" : ""}만드는 동안 화면을 닫지 마세요.`, "만들기"))) return;
+  try {
+    await needZip(); await needPDF();
+    const zip = new JSZip(); let n = 0;
+    busy(`성적표 만드는 중… (0/${idx.length})`);
+    for (const i of idx) {
+      zip.file(pdfName(ex, k.rows[i]), await pdfOf(ex, k, i));
+      n++; $("#busyMsg").textContent = `성적표 만드는 중… (${n}/${idx.length})`; busyProg(n / idx.length);
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    $("#busyMsg").textContent = "ZIP 파일로 묶는 중…";
+    const blob = await zip.generateAsync({ type: "blob" });
+    download(blob, safeName(`${ex.year}학년도 ${ex.round}차 성적표_${S.center || "전체"}_${idx.length}명.zip`));
+    toast(`${idx.length}명 성적표를 내려받았습니다.`);
+  } catch (e) { toast(e.message, 5000); } finally { busy(); }
+}
+
+// ---------- 시험 목록·가져오기 ----------
+let pending = []; // 가져오기 미리보기
+function viewManage(v) {
+  const ys = [...new Set(S.exams.map((e) => e.year))].sort((a, b) => b - a);
+  v.innerHTML = `<div class="grid2">
+   <div class="card"><h3>시험 목록</h3>
+    ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>시행일</th><th>응시</th><th>수정</th><th></th></tr></thead><tbody>
+     ${ys.map((y) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e) => `<tr><td>${e.year}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td>
+       <td><button class="small" data-open="${e.id}">열기</button> <button class="small danger" data-delx="${e.id}">삭제</button></td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
+    ${S.exam?.id && S.backup ? `<div style="margin-top:14px" class="hint">현재 시험(${S.exam.year}학년도 ${S.exam.round}차)의 직전 저장본: ${new Date(S.backup.saved_at).toLocaleString("ko-KR")} · ${S.backup.n}명 <button class="small" id="restore">이 저장본으로 되돌리기</button></div>` : ""}
+   </div>
+   <div class="card"><h3>기존 구글 시트(성적입력 툴) 가져오기</h3>
+     <p class="hint">구글 시트에서 [파일 → 다운로드 → Microsoft Excel(.xlsx)]로 받은 파일을 여러 개 한꺼번에 고르세요. 학년도·차수·문항 구성·배점·학생 점수·커트라인을 자동으로 읽습니다.</p>
+     <input type="file" id="impF" accept=".xlsx,.xls" multiple style="margin-top:10px;width:100%">
+     <div id="impList" style="margin-top:12px"></div>
+   </div></div>`;
+  v.onclick = async (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.open) { await openExam(Number(t.dataset.open)); S.tab = "input"; render(); }
+    else if (t.dataset.delx) {
+      const ex = S.exams.find((x) => x.id === Number(t.dataset.delx));
+      if (!(await confirmBox(`${ex.year}학년도 ${ex.round}차 시험(학생 ${ex.n}명)을 삭제할까요?\n삭제 직전 내용은 백업으로 남지만 화면에서는 사라집니다.`, "삭제"))) return;
+      try { await api("examDelete", { id: ex.id }); if (S.exam?.id === ex.id) { S.exam = null; setDirty(false); } await loadList(); render(); toast("삭제했습니다."); } catch (err) { toast(err.message); }
+    } else if (t.id === "restore") {
+      if (!(await confirmBox("직전 저장본과 지금 내용을 서로 맞바꿉니다. 계속할까요?", "되돌리기"))) return;
+      try { await api("examRestore", { id: S.exam.id }); await loadList(); await openExam(S.exam.id, true); S.tab = "manage"; render(); toast("되돌렸습니다."); } catch (err) { toast(err.message); }
+    } else if (t.id === "impGo") runImport();
+    else if (t.id === "impClr") { pending = []; renderImp(); }
+  };
+  $("#impF").onchange = async (e) => {
+    await needXLSX();
+    for (const f of e.target.files) await addImportBuf(f.name, await f.arrayBuffer());
+    e.target.value = "";
+  };
+  renderImp();
+}
+async function addImportBuf(name, buf) {
+  await needXLSX();
+  try { const p = parseTool(XLSX.read(buf, { type: "array" }), name); pending = pending.filter((x) => !(x.year === p.year && x.round === p.round)); pending.push(p); }
+  catch (err) { pending.push({ error: err.message, file: name }); }
+  pending.sort((a, b) => (a.year || 0) - (b.year || 0) || (a.round || 0) - (b.round || 0));
+  if (S.tab === "manage") renderImp();
+}
+function renderImp() {
+  const el = $("#impList"); if (!el) return;
+  if (!pending.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<table class="v"><thead><tr><th>파일</th><th>학년도</th><th>차수</th><th>수학</th><th>과학</th><th>학생</th><th>커트라인</th><th>상태</th></tr></thead><tbody>
+    ${pending.map((p) => p.error ? `<tr><td class="l">${esc(p.file)}</td><td colspan="7" style="color:#fca5a5">${esc(p.error)}</td></tr>` :
+      `<tr><td class="l" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(p.file)}</td><td>${p.year}</td><td>${p.round}차</td><td>${p.config.math.items.length}문항 ${fmax(p.config.math.items.reduce((x, y) => x + y.max, 0))}점</td><td>${p.config.sci.items.length}문항 ${fmax(p.config.sci.items.reduce((x, y) => x + y.max, 0))}점</td><td>${p.students.length}명</td><td>${p.config.cutoffs.length}개</td>
+       <td>${S.exams.some((e) => e.year === p.year && e.round === p.round) ? `<span class="pill" style="color:var(--warn)">덮어쓰기</span>` : `<span class="pill" style="color:var(--ok)">새로 추가</span>`}</td></tr>`).join("")}</tbody></table>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="small ghost" id="impClr">목록 비우기</button><button class="primary" id="impGo">가져오기 실행</button></div>`;
+}
+async function runImport() {
+  const ok = pending.filter((p) => !p.error);
+  if (!ok.length) return;
+  const over = ok.filter((p) => S.exams.some((e) => e.year === p.year && e.round === p.round));
+  if (!(await confirmBox(`${ok.length}개 시험을 가져옵니다.${over.length ? `\n이미 있는 ${over.map((p) => p.year + "학년도 " + p.round + "차").join(", ")}는 내용을 바꿉니다(직전 내용은 백업).` : ""}`, "가져오기"))) return;
+  busy("가져오는 중…"); let n = 0;
+  try {
+    for (const p of ok) {
+      await api("examSave", { year: p.year, round: p.round, config: p.config, students: p.students, overwrite: true });
+      n++; busyProg(n / ok.length);
+    }
+    pending = []; await loadList(); S.year = ok[ok.length - 1].year; $("#selYear").value = S.year; renderSide(); render(); toast(`${n}개 시험을 가져왔습니다.`);
+  } catch (e) { toast(`${n}개까지 가져오고 오류: ${e.message}`, 6000); await loadList(); render(); } finally { busy(); }
+}
+// 기존 툴 xlsx 해석: [N차] 성적입력 / [N차] 성적표 출력
+function parseTool(wb, file) {
+  const names = wb.SheetNames;
+  const inName = names.find((n) => n.includes("성적입력"));
+  if (!inName) throw new Error("'성적입력' 탭을 찾지 못했습니다.");
+  const rpName = names.find((n) => n.includes("성적표 출력"));
+  const aoa = (n) => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: "" });
+  const A = aoa(inName), RP = rpName ? aoa(rpName) : [];
+  const flat = RP.slice(0, 3).flat().map(String).join(" ");
+  const roundM = (inName + " " + file).match(/\[?(\d+)\s*차\]?/), yearM = (flat + " " + file).match(/(20\d\d)\s*학년도/);
+  if (!roundM) throw new Error("차수를 알 수 없습니다(탭 이름에 [N차]가 없음).");
+  if (!yearM) throw new Error("학년도를 알 수 없습니다(성적표 제목에 'OOOO학년도'가 없음).");
+  const r2 = A[1] || [], r3 = A[2] || [], r4 = A[3] || [], r5 = A[4] || [];
+  const cM = r2.findIndex((x) => String(x).trim() === "수학"), cS = r2.findIndex((x) => String(x).trim() === "과학");
+  if (cM < 0 || cS < 0) throw new Error("성적입력 탭 2행에서 '수학'/'과학' 제목을 찾지 못했습니다.");
+  let cEndM = r2.findIndex((x, i) => i > cM && String(x).trim() === "이름"); if (cEndM < 0) cEndM = cS;
+  let cEndS = r2.findIndex((x, i) => i > cS && /영역별|자동/.test(String(x))); if (cEndS < 0) cEndS = r2.length;
+  const cAuto = (A[0] || []).findIndex((x) => /자동 산출/.test(String(x))); if (cAuto > cS && cAuto < cEndS) cEndS = cAuto;
+  const cols = (a, b) => { const out = []; for (let c = a; c < b; c++) if (String(r3[c] ?? "").trim() !== "") out.push(c); return out; };
+  const mC = cols(cM, cEndM), sC = cols(cS, cEndS);
+  const item = (c) => ({ no: String(r3[c]).trim(), area: AREA_MAP[String(r4[c]).trim()[0]] || String(r4[c]).trim(), max: Number(r5[c]) || 0 });
+  const num = (x) => { if (x === "" || x == null) return null; const n = typeof x === "number" ? x : Number(String(x).replace(/,/g, "")); return Number.isFinite(n) ? n : null; };
+  const students = [];
+  for (let r = 6; r < A.length; r++) {
+    const row = A[r] || [], name = String(row[1] ?? "").trim();
+    if (!name) continue;
+    students.push({ name, center: String(row[2] ?? "").trim(), m: mC.map((c) => num(row[c])), s: sC.map((c) => num(row[c])) });
+  }
+  const cutoffs = [];
+  RP.forEach((row) => { if (String(row[7] ?? "").trim() === "점수" && String(row[5] ?? "").trim()) cutoffs.push({ name: String(row[5]).trim(), math: num(row[8]), sci: num(row[9]) }); });
+  const t2 = RP.slice(0, 3).map((r) => String(r[0] ?? "")).find((s) => /결과표/.test(s)) || "";
+  const title = t2.replace(/\[\s*\d+\s*차\s*\]/, "").replace(/결과표/, "").trim() || "와이즈만 전국 모의고사";
+  return { file, year: Number(yearM[1]), round: Number(roundM[1]),
+    config: { title, date: "", math: { areas: ["기하", "조합", "대수"], items: mC.map(item) }, sci: { areas: ["물리", "화학", "생명과학", "지구과학"], items: sC.map(item) }, conv: { math: "1.2", sci: "2/3" }, cutoffs, memo: "" },
+    students };
+}
+// 구글 시트 탭에서 보낸 파일 받기 (docs.google.com 에서 온 것만)
+window.addEventListener("message", (e) => {
+  if (e.origin !== "https://docs.google.com" || !token) return;
+  const d = e.data;
+  if (d && d.type === "wmock-xlsx" && d.buf instanceof ArrayBuffer) { addImportBuf(String(d.name || "sheet.xlsx"), d.buf); e.source?.postMessage?.({ type: "wmock-ack", name: d.name }, e.origin); }
+});
+
+// ======================= 시작 =======================
+(async () => { if (token) { try { await startApp(); return; } catch { /* 로그인 필요 */ } } showLogin(); })();
+</script>
+</body>
+</html>
