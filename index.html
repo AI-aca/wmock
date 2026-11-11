@@ -185,6 +185,7 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 "use strict";
 // ======================= 기본 =======================
 const API = "https://xphtctpbysbbdyjaxidh.supabase.co/functions/v1/mock";
+const PUB_KEY = "sb_publishable_hJhzNLVAHV5wGx4josPkWQ_PZDw-Cpd"; // 공개용 키(브라우저용, 비밀 아님)
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -194,7 +195,7 @@ const AREA_MAP = { 기: "기하", 조: "조합", 대: "대수", 물: "물리", �
 const DEF_CUTS = ["서울, 경기, KSA", "인천, 대구, 대전", "광주, 세종"];
 
 async function api(action, body = {}) {
-  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, token, ...body }) });
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", apikey: PUB_KEY, Authorization: "Bearer " + PUB_KEY }, body: JSON.stringify({ action, token, ...body }) });
   let d; try { d = await r.json(); } catch { throw new Error("서버 응답을 읽지 못했습니다."); }
   if (!d.ok) {
     if (/로그인이 (필요|만료)/.test(d.error || "")) { token = ""; sessionStorage.removeItem("mock_token"); showLogin(); }
