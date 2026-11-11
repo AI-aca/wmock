@@ -65,6 +65,8 @@ header{display:flex;align-items:center;gap:6px;padding:12px 20px;border-bottom:1
 .tabs{display:flex;gap:4px;flex-wrap:wrap}
 .tab{border:none;background:transparent;color:var(--sub);padding:8px 14px;border-radius:10px;font-weight:600}
 .tab.on{background:var(--glass3);color:var(--text);box-shadow:inset 0 0 0 1px var(--line2)}
+.tab[data-t="manage"]{color:#5eead4}.tab[data-t="manage"].on{color:#5eead4;box-shadow:inset 0 0 0 1px rgba(94,234,212,.5)}
+.tab[data-t="users"]{color:#f9a8d4}.tab[data-t="users"].on{color:#f9a8d4;box-shadow:inset 0 0 0 1px rgba(249,168,212,.5)}
 .tab[data-t="config"]{color:var(--gold)}.tab[data-t="config"].on{color:var(--gold);box-shadow:inset 0 0 0 1px rgba(230,194,122,.5)}
 .sep{width:1px;height:22px;background:var(--line2);margin:0 6px}
 .extitle{font-weight:800;font-size:15px;margin-right:12px}
@@ -208,7 +210,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
         <button class="tab" data-t="report">성적표 출력</button>
         <span class="sep"></span>
         <button class="tab" data-t="manage">시험 목록·가져오기</button>
-        <button class="tab hidden" data-t="users" id="tabUsers">사용자 승인</button>
+        <button class="tab" data-t="users" id="tabUsers">사용자 승인</button>
       </div>
       <div class="grow"></div>
       <button class="primary" id="btnSave">저장</button>
@@ -397,7 +399,6 @@ async function startApp() {
   if (!S.user) S.user = (await api("me")).user;
   $("#app").classList.remove("hidden");
   $("#whoami").textContent = `${S.user.email}${S.user.role === "admin" ? " (관리자)" : ""}`;
-  $("#tabUsers").classList.toggle("hidden", S.user.role !== "admin");
   await loadList();
   const last = Number(sessionStorage.getItem("mock_exam") || 0);
   if (last && S.exams.some((e) => e.id === last)) await openExam(last, true);
@@ -1009,7 +1010,7 @@ async function zipAll(ex, k, idx) {
 
 // ---------- 사용자 승인 (관리자) ----------
 async function viewUsers(v) {
-  if (S.user?.role !== "admin") { v.innerHTML = `<div class="empty warn">관리자만 볼 수 있습니다.</div>`; return; }
+  if (S.user?.role !== "admin") { v.innerHTML = `<div class="empty warn">관리자만 사용할 수 있는 메뉴입니다.<br><span class="muted" style="font-size:14px">사용자 승인이 필요하면 관리자에게 요청하세요.</span></div>`; return; }
   v.innerHTML = `<div class="empty">불러오는 중…</div>`;
   let users = [];
   try { users = (await api("userList")).users; } catch (e) { v.innerHTML = `<div class="empty warn">${esc(e.message)}</div>`; return; }
