@@ -651,7 +651,7 @@ function viewInput(v) {
       <div class="kpis"><div class="kpi"><div class="k">입력 학생</div><div class="v" id="kN"></div></div><div class="kpi"><div class="k">센터</div><div class="v" id="kC"></div></div></div>
       <div class="seg" id="inMode">${[["m", "수학만"], ["s", "과학만"], ["all", "전체"]].map(([k, l]) => `<button class="${S.inMode === k ? "on" : ""}" data-mode="${k}">${l}</button>`).join("")}</div>
       <div class="grow"></div>
-      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 엑셀에서 복사해 붙여넣으면 지금 보이는 열 순서대로 들어갑니다(수학 점수는 [수학만] 화면에서). 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점을 넘는 점수는 입력되지 않습니다.</div>
+      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점을 넘는 점수는 입력되지 않습니다.</div>
       <button class="small" id="addRows">+ 10줄</button></div>
     <div class="tw" id="gridWrap"><table class="g" id="grid">${head}<tbody>${body}</tbody></table></div>`;
   refreshAll();
