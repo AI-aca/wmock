@@ -241,6 +241,15 @@ function download(blob, name) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
 const safeName = (s) => String(s).replace(/[\\/:*?"<>|]/g, "_");
+// 엑셀이 "1-1" 같은 문항번호를 날짜(1월 1일 = 46023 같은 숫자)로 바꿔 버린 경우 되돌림
+function fixNo(v) {
+  if (typeof v === "number" && v >= 20000 && v < 80000 && Number.isInteger(v)) {
+    const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+    return `${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+  }
+  const t = String(v ?? "").trim();
+  return /^\d{5}$/.test(t) && +t >= 20000 && +t < 80000 ? fixNo(+t) : t;
+}
 
 // ======================= 계산 (기존 구글시트 수식과 동일) =======================
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
@@ -391,7 +400,7 @@ async function openExam(id, quiet) {
 }
 function normExam(e) {
   const c = e.config || {};
-  const subj = (s, def) => ({ areas: s?.areas?.length ? s.areas : def, items: (s?.items || []).map((x) => ({ no: x.no ?? "", area: x.area ?? "", max: Number(x.max) || 0 })) });
+  const subj = (s, def) => ({ areas: s?.areas?.length ? s.areas : def, items: (s?.items || []).map((x) => ({ no: fixNo(x.no ?? ""), area: x.area ?? "", max: Number(x.max) || 0 })) });
   const config = {
     title: c.title || "와이즈만 전국 모의고사", date: c.date || "",
     math: subj(c.math, ["기하", "조합", "대수"]), sci: subj(c.sci, ["물리", "화학", "생명과학", "지구과학"]),
@@ -999,7 +1008,7 @@ function parseTool(wb, file) {
   const cAuto = (A[0] || []).findIndex((x) => /자동 산출/.test(String(x))); if (cAuto > cS && cAuto < cEndS) cEndS = cAuto;
   const cols = (a, b) => { const out = []; for (let c = a; c < b; c++) if (String(r3[c] ?? "").trim() !== "") out.push(c); return out; };
   const mC = cols(cM, cEndM), sC = cols(cS, cEndS);
-  const item = (c) => ({ no: String(r3[c]).trim(), area: AREA_MAP[String(r4[c]).trim()[0]] || String(r4[c]).trim(), max: Number(r5[c]) || 0 });
+  const item = (c) => ({ no: fixNo(r3[c]), area: AREA_MAP[String(r4[c]).trim()[0]] || String(r4[c]).trim(), max: Number(r5[c]) || 0 });
   const num = (x) => { if (x === "" || x == null) return null; const n = typeof x === "number" ? x : Number(String(x).replace(/,/g, "")); return Number.isFinite(n) ? n : null; };
   const students = [];
   for (let r = 6; r < A.length; r++) {
