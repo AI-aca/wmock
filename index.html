@@ -1137,10 +1137,10 @@ new MutationObserver((ms) => ms.forEach((m) => {
 document.querySelectorAll("select").forEach(fsEnhance);
 function fsSyncAll() { document.querySelectorAll("select.fs-src").forEach(fsSync); }
 
-// 이름(학생 이름·센터·사용자 이름)에는 띄어쓰기를 넣을 수 없음: 입력하는 즉시 공백 제거
+// 학생 이름·센터에는 띄어쓰기를 넣을 수 없음: 입력하는 즉시 공백 제거 (사용자 승인 탭의 이름은 빈칸 허용)
 document.addEventListener("input", (e) => {
   const t = e.target;
-  if (!t.matches?.('#grid input[data-c="0"], #grid input[data-c="1"], #uName, input.uname')) return;
+  if (!t.matches?.('#grid input[data-c="0"], #grid input[data-c="1"]')) return;
   if (!/\s/.test(t.value)) return;
   const pos = t.selectionStart - (t.value.slice(0, t.selectionStart).match(/\s/g) || []).length;
   t.value = t.value.replace(/\s+/g, ""); try { t.setSelectionRange(pos, pos); } catch { /* 무시 */ }
