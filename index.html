@@ -123,6 +123,7 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
 .qtbl{table-layout:fixed;width:auto}.qtbl input.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .warnTxt{color:#fbbf24;font-weight:600}
+input.ratio.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .convbox{margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(94,234,212,.5);background:linear-gradient(135deg,rgba(94,234,212,.12),rgba(99,102,241,.10))}
 .convbox.warn{border-color:rgba(251,191,36,.6);background:rgba(251,191,36,.10);color:#fbbf24;font-weight:600;font-size:14px}
 .convbox .cap{font-size:12.5px;font-weight:700;color:#5eead4;margin-bottom:8px}
@@ -825,11 +826,11 @@ function viewConfig(v) {
   v.innerHTML = `<div class="grid2">
     <div class="card"><h3>기본 정보</h3>
       <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center">
-        <span class="sub">학년도</span><input id="cY" type="number" value="${ex.year}">
-        <span class="sub">차수</span><input id="cR" type="number" value="${ex.round}">
+        <span class="sub">학년도</span><input id="cY" inputmode="numeric" maxlength="4" value="${ex.year}">
+        <span class="sub">차수</span><input id="cR" inputmode="numeric" maxlength="2" value="${ex.round}">
         <span class="sub">시험 이름</span><input id="cT" value="${esc(c.title)}">
-        <span class="sub">수학 환산 비율</span><input id="cKm" value="${esc(c.conv.math)}">
-        <span class="sub">과학 환산 비율</span><input id="cKs" value="${esc(c.conv.sci)}">
+        <span class="sub">수학 환산 비율</span><input id="cKm" class="ratio" inputmode="decimal" value="${esc(c.conv.math)}">
+        <span class="sub">과학 환산 비율</span><input id="cKs" class="ratio" inputmode="decimal" value="${esc(c.conv.sci)}">
       </div>
       <div class="row" style="margin-top:10px"><button class="small" id="convCalc">환산 비율로 만점 계산</button></div>
       <div id="convOut"></div>
@@ -846,11 +847,24 @@ function viewConfig(v) {
     </div>
     ${subjCard("math", "수학")}${subjCard("sci", "과학")}</div>`;
   const ch = () => setDirty(true);
-  $("#cY").onchange = (e) => { ex.year = Number(e.target.value); ch(); render(); };
-  $("#cR").onchange = (e) => { ex.round = Number(e.target.value); ch(); render(); };
+  const numOk = (el, cur, lo, hi, label) => {
+    const t = el.value.trim();
+    if (/^\d+$/.test(t) && +t >= lo && +t <= hi) return +t;
+    el.value = cur; confirmBox(`${label}는 ${lo}~${hi} 사이의 숫자만 입력할 수 있습니다.`, "확인", ""); return null;
+  };
+  ["#cY", "#cR"].forEach((id) => ($(id).oninput = (e) => { const f = e.target.value.replace(/\D/g, ""); if (f !== e.target.value) e.target.value = f; }));
+  $("#cY").onchange = (e) => { const n = numOk(e.target, ex.year, 2000, 2100, "학년도"); if (n == null) return; ex.year = n; ch(); render(); };
+  $("#cR").onchange = (e) => { const n = numOk(e.target, ex.round, 1, 99, "차수"); if (n == null) return; ex.round = n; ch(); render(); };
   $("#cT").oninput = (e) => { c.title = e.target.value; ch(); };
-  $("#cKm").oninput = (e) => { c.conv.math = e.target.value; ch(); };
-  $("#cKs").oninput = (e) => { c.conv.sci = e.target.value; ch(); };
+  const RATIO_RE = /^\d+(\.\d+)?(\s*\/\s*\d+(\.\d+)?)?$/; // 1.2 또는 2/3
+  const ratioIn = (key) => (e) => { const v = e.target.value, f = v.replace(/[^0-9./]/g, ""); if (f !== v) e.target.value = f; const t = f.trim(); e.target.classList.toggle("bad", t !== "" && !RATIO_RE.test(t)); };
+  const ratioCh = (key) => (e) => {
+    const t = e.target.value.trim();
+    if (!RATIO_RE.test(t) || !(parseRatio(t) > 0)) { e.target.value = c.conv[key]; e.target.classList.remove("bad"); confirmBox("환산 비율은 1.2 또는 2/3처럼 숫자(또는 분수)만 입력할 수 있습니다.", "확인", ""); return; }
+    c.conv[key] = t.replace(/\s+/g, ""); e.target.value = c.conv[key]; ch(); $("#convOut").innerHTML = "";
+  };
+  $("#cKm").oninput = ratioIn("math"); $("#cKm").onchange = ratioCh("math");
+  $("#cKs").oninput = ratioIn("sci"); $("#cKs").onchange = ratioCh("sci");
   $("#cM").oninput = (e) => { c.memo = e.target.value; ch(); };
   const setAreas = (key, val) => { const a = val.split(",").map((x) => x.trim()).filter(Boolean); if (a.length) { c[key].areas = a; ch(); viewConfig(v); } };
   $("#aM").onchange = (e) => setAreas("math", e.target.value);
