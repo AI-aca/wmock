@@ -210,7 +210,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
         <button class="tab" data-t="report">성적표 출력</button>
         <span class="sep"></span>
         <button class="tab" data-t="manage">시험 목록·가져오기</button>
-        <button class="tab" data-t="users" id="tabUsers">사용자 승인</button>
+        <button class="tab" data-t="users" id="tabUsers">사용자 승인 및 로그기록</button>
       </div>
       <div class="grow"></div>
       <button class="primary" id="btnSave">저장</button>
@@ -1022,12 +1022,18 @@ async function viewUsers(v) {
     <div class="row" style="margin-bottom:14px"><input id="uEmail" placeholder="추가할 구글 이메일" style="width:260px"><input id="uName" placeholder="이름(선택)" style="width:140px">
       <select id="uRole"><option value="member">사용자</option><option value="admin">관리자</option></select><button class="primary small" id="uAdd">승인 추가</button></div>
     <table class="v"><thead><tr><th>이메일</th><th>이름</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>등록</th><th></th></tr></thead><tbody>
-    ${users.map((u) => `<tr><td class="l">${esc(u.email)}${u.email === S.user.email ? ' <span class="muted">(나)</span>' : ""}</td><td>${esc(u.name)}</td><td>${u.role === "admin" ? "관리자" : "사용자"}</td>
+    ${users.map((u) => `<tr><td class="l">${esc(u.email)}${u.email === S.user.email ? ' <span class="muted">(나)</span>' : ""}</td><td><input class="uname" data-u="${esc(u.email)}" value="${esc(u.name)}" placeholder="이름 입력" style="width:130px;text-align:center;padding:5px 8px"></td><td>${u.role === "admin" ? `<b style="color:var(--gold)">관리자</b>` : "사용자"}</td>
       <td><span class="pill" style="color:${st[u.status][1]}">${st[u.status][0]}</span></td><td class="muted">${dt(u.last_login)}</td><td class="muted">${dt(u.created_at)}</td>
       <td style="text-align:right">${u.email === S.user.email ? "" : `
         ${u.status !== "approved" ? `<button class="small primary" data-u="${esc(u.email)}" data-act="approve">승인</button>` : `<button class="small" data-u="${esc(u.email)}" data-act="block">차단</button>`}
         <button class="small" data-u="${esc(u.email)}" data-act="role">${u.role === "admin" ? "사용자로" : "관리자로"}</button>
         <button class="small danger" data-u="${esc(u.email)}" data-act="del">삭제</button>`}</td></tr>`).join("")}</tbody></table></div></div>`;
+  v.onchange = (e) => {
+    const t = e.target; if (!t.classList?.contains("uname")) return;
+    const u = users.find((x) => x.email === t.dataset.u); if (!u || t.value.trim() === u.name) return;
+    save(u, { name: t.value.trim() });
+  };
+  loadLogs();
   const save = async (u, patch) => { try { await api("userSave", { email: u.email, name: u.name, role: u.role, status: u.status, ...patch }); viewUsers(v); toast("저장했습니다."); } catch (e) { toast(e.message, 4000); } };
   v.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
@@ -1047,6 +1053,26 @@ async function viewUsers(v) {
   };
 }
 
+async function loadLogs() {
+  const v = $("#view");
+  let box = $("#logCard");
+  if (!box) { box = document.createElement("div"); box.id = "logCard"; box.className = "card"; box.style.marginTop = "16px"; v.appendChild(box); }
+  box.innerHTML = `<h3>로그 기록</h3><div class="hint">불러오는 중…</div>`;
+  let logs = [];
+  try { logs = (await api("logList")).logs; } catch (e) { box.innerHTML = `<h3>로그 기록</h3><div class="hint">${esc(e.message)}</div>`; return; }
+  const acts = [...new Set(logs.map((l) => l.action))];
+  const dt = (x) => new Date(x).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "medium" });
+  const draw = () => {
+    const fa = $("#logAct").value, q = $("#logQ").value.trim().toLowerCase();
+    const list = logs.filter((l) => (!fa || l.action === fa) && (!q || (l.email + " " + l.name + " " + l.detail).toLowerCase().includes(q)));
+    $("#logBody").innerHTML = list.length ? list.map((l) => `<tr><td class="muted">${dt(l.at)}</td><td>${esc(l.name || "-")}</td><td class="l">${esc(l.email)}</td><td><span class="pill">${esc(l.action)}</span></td><td class="l">${esc(l.detail)}</td></tr>`).join("") : `<tr><td colspan="5" class="muted">기록이 없습니다.</td></tr>`;
+  };
+  box.innerHTML = `<div class="row" style="margin-bottom:10px"><h3 style="margin:0">로그 기록</h3><span class="hint">최근 500건 · 로그인, 시험 저장·생성·삭제·되돌리기, 사용자 변경</span><div class="grow"></div>
+      <select id="logAct"><option value="">전체 동작</option>${acts.map((a) => `<option>${esc(a)}</option>`).join("")}</select><input id="logQ" placeholder="이름·이메일·내용 검색" style="width:200px"></div>
+    <div class="tw" style="max-height:480px"><table class="v"><thead><tr><th style="width:170px">일시</th><th>이름</th><th>이메일</th><th>동작</th><th>내용</th></tr></thead><tbody id="logBody"></tbody></table></div>`;
+  $("#logAct").onchange = draw; $("#logQ").oninput = draw; draw();
+}
+
 // ---------- 시험 목록·가져오기 ----------
 let pending = []; // 가져오기 미리보기
 function viewManage(v) {
@@ -1055,7 +1081,7 @@ function viewManage(v) {
    <div class="card"><h3>시험 목록</h3>
     ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>시행일</th><th>응시</th><th>수정</th><th>수정자</th><th></th></tr></thead><tbody>
      ${ys.map((y, yi) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e, ei) => `<tr class="${yi > 0 && ei === 0 ? "ygap" : ""}"><td>${ei === 0 ? `<b>${e.year}</b>` : `<span class="muted">${e.year}</span>`}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
-       <td><button class="small" data-open="${e.id}">열기</button> <button class="small danger" data-delx="${e.id}">삭제</button></td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
+       <td><button class="small" data-open="${e.id}">열기</button> ${S.user?.role === "admin" ? `<button class="small danger" data-delx="${e.id}">삭제</button>` : ""}</td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
     ${S.exam?.id && S.backup ? `<div style="margin-top:14px" class="hint">현재 시험(${S.exam.year}학년도 ${S.exam.round}차)의 직전 저장본: ${new Date(S.backup.saved_at).toLocaleString("ko-KR")} · ${S.backup.n}명 <button class="small" id="restore">이 저장본으로 되돌리기</button></div>` : ""}
    </div>
    <div class="card"><h3>기존 구글 시트(성적입력 툴) 가져오기</h3>
