@@ -220,9 +220,9 @@ function modal(html, wide = false) {
   document.body.appendChild(m);
   return m;
 }
-function confirmBox(msg, okText = "확인") {
+function confirmBox(msg, okText = "확인", cancelText = "취소") {
   return new Promise((res) => {
-    const m = modal(`<div style="white-space:pre-line;line-height:1.7">${esc(msg)}</div><div class="row" style="justify-content:flex-end;margin-top:18px"><button data-x="0">취소</button><button class="primary" data-x="1">${esc(okText)}</button></div>`);
+    const m = modal(`<div style="white-space:pre-line;line-height:1.7">${esc(msg)}</div><div class="row" style="justify-content:flex-end;margin-top:18px">${cancelText ? `<button data-x="0">${esc(cancelText)}</button>` : ""}<button class="primary" data-x="1">${esc(okText)}</button></div>`);
     m.addEventListener("click", (e) => { const x = e.target.dataset?.x; if (x != null) { m.remove(); res(x === "1"); } });
     setTimeout(() => m.querySelector('[data-x="1"]').focus(), 30);
   });
@@ -508,6 +508,7 @@ function viewInput(v) {
   grid.addEventListener("input", onGridInput);
   grid.addEventListener("keydown", onGridKey);
   grid.addEventListener("paste", onGridPaste);
+  grid.addEventListener("focusout", onGridChange);
   $("#addRows").onclick = () => { for (let i = 0; i < 10; i++) ex.students.push(blankStu()); viewInput(v); };
 }
 function blankStu() { const c = S.exam.config; return { name: "", center: "", m: c.math.items.map(() => null), s: c.sci.items.map(() => null) }; }
@@ -547,6 +548,7 @@ function onGridInput(e) {
   const inp = e.target; if (!inp.dataset.c) return;
   const r = Number(inp.closest("tr").dataset.r), c = Number(inp.dataset.c);
   setCell(r, c, inp.value); setDirty(true);
+  if (c >= 2) inp.dataset.chk = "1";
   refreshRow(r);
   if (c <= 1) refreshDup();
   refreshStats();
@@ -577,6 +579,26 @@ function refreshStats() {
   $("#kN").textContent = k.N + "명"; $("#kC").textContent = centersOf(ex).length + "곳";
 }
 function refreshAll() { S.exam.students.forEach((_, r) => refreshRow(r)); refreshDup(); refreshStats(); }
+// 만점 초과(또는 음수·숫자 아님) 입력 경고 — 새로 입력할 때만 (가져온 기존 자료는 건드리지 않음)
+function itemOf(c) { const cf = S.exam.config, nm = cf.math.items.length; return c - 2 < nm ? { subj: "수학", it: cf.math.items[c - 2] } : { subj: "과학", it: cf.sci.items[c - 2 - nm] }; }
+let warnOpen = false;
+async function onGridChange(e) {
+  const inp = e.target, c = Number(inp.dataset?.c); if (!(c >= 2) || warnOpen || inp.dataset.chk !== "1") return;
+  delete inp.dataset.chk;
+  const raw = inp.value.trim(); if (raw === "") return;
+  const r = Number(inp.closest("tr").dataset.r), n = Number(raw.replace(/,/g, "")), { subj, it } = itemOf(c);
+  const name = S.exam.students[r]?.name || `${r + 1}번 줄`;
+  let msg = "";
+  if (!Number.isFinite(n)) msg = `숫자가 아닌 값(${raw})은 저장되지 않습니다.`;
+  else if (n < 0) msg = `음수 점수(${raw})가 입력되었습니다.`;
+  else if (n > it.max + 1e-9) msg = `만점(${fmax(it.max)}점)보다 큰 점수(${raw}점)가 입력되었습니다.`;
+  if (!msg) return;
+  warnOpen = true;
+  const keep = await confirmBox(`⚠ ${name} · ${subj} ${it.no}번 (${it.area})\n${msg}\n\n다시 입력하시겠어요?`, "지우고 다시 입력", "그대로 두기").then((x) => !x);
+  warnOpen = false;
+  if (!keep) { inp.value = ""; setCell(r, c, ""); refreshRow(r); refreshStats(); setDirty(true); }
+  inp.focus(); inp.select();
+}
 function onGridKey(e) {
   const inp = e.target; if (!inp.dataset?.c) return;
   const r = Number(inp.closest("tr").dataset.r), c = Number(inp.dataset.c);
@@ -597,7 +619,15 @@ function onGridPaste(e) {
   const ncol = 2 + ex.config.math.items.length + ex.config.sci.items.length;
   while (ex.students.length < r0 + lines.length + 1) ex.students.push(blankStu());
   lines.forEach((cells, i) => cells.forEach((v, j) => { if (c0 + j < ncol) setCell(r0 + i, c0 + j, v); }));
-  setDirty(true); viewInput($("#view")); toast(`${lines.length}줄을 붙여넣었습니다.`);
+  setDirty(true); viewInput($("#view"));
+  const over = [];
+  lines.forEach((cells, i) => cells.forEach((v, j) => {
+    const c = c0 + j, t = String(v).trim(); if (c < 2 || c >= ncol || t === "") return;
+    const n = Number(t.replace(/,/g, "")), { subj, it } = itemOf(c);
+    if (!Number.isFinite(n) || n < 0 || n > it.max + 1e-9) over.push(`${ex.students[r0 + i].name || (r0 + i + 1) + "번 줄"} · ${subj} ${it.no}번: ${t} (만점 ${fmax(it.max)})`);
+  }));
+  if (over.length) confirmBox(`⚠ 붙여넣은 값 중 만점을 넘거나 잘못된 점수가 ${over.length}개 있습니다. 빨간 칸을 확인하세요.\n\n${over.slice(0, 12).join("\n")}${over.length > 12 ? `\n… 외 ${over.length - 12}개` : ""}`, "확인", "");
+  else toast(`${lines.length}줄을 붙여넣었습니다.`);
 }
 
 // ---------- 시험 설정 ----------
