@@ -123,6 +123,9 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
 .qtbl{table-layout:fixed;width:auto}.qtbl input.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .warnTxt{color:#fbbf24;font-weight:600}
+.trgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:1200px){.trgrid{grid-template-columns:1fr 1fr}}
+.trc{padding:14px 14px 10px}.trt{font-size:14px;font-weight:700;margin-bottom:6px}.trbox{height:210px;position:relative}
 input.ratio.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .convbox{margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(94,234,212,.5);background:linear-gradient(135deg,rgba(94,234,212,.12),rgba(99,102,241,.10))}
 .convbox.warn{border-color:rgba(251,191,36,.6);background:rgba(251,191,36,.10);color:#fbbf24;font-weight:600;font-size:14px}
@@ -252,6 +255,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
         <button class="tab" data-t="total">종합성적</button>
         <button class="tab" data-t="rank">순위별 정리</button>
         <button class="tab" data-t="report">성적표 출력</button>
+        <button class="tab" data-t="trend">학생별 성적 추이</button>
         <span class="sep"></span>
         <button class="tab" data-t="manage">시험 목록·가져오기</button>
         <button class="tab" data-t="users" id="tabUsers">사용자 승인 및 로그기록</button>
@@ -470,7 +474,7 @@ $("#brandHome").onclick = async () => {
   try { sessionStorage.removeItem("mock_exam"); } catch { /* 무시 */ }
   renderSide(); render();
 };
-$("#selYear").onchange = async () => { S.year = Number($("#selYear").value); renderSide(); };
+$("#selYear").onchange = async () => { S.year = Number($("#selYear").value); renderSide(); if (S.tab === "trend") render(); };
 $("#exList").onclick = async (e) => { const b = e.target.closest(".excard"); if (b) await openExam(Number(b.dataset.id)); };
 async function leaveOk() {
   if (!S.dirty) return true;
@@ -577,6 +581,10 @@ $("#btnGuide").onclick = () => {
       "성적표는 <b>2쪽</b>입니다. 1쪽은 영역별·환산 점수·커트라인·그래프, 2쪽은 문항별 상세 점수(만점·평균·개인 점수)입니다.",
       "<b>[인쇄]</b>, <b>[PDF로 저장]</b>(한 명), <b>[일괄 PDF (ZIP)]</b>(고른 센터 또는 전체 학생)를 씁니다.",
       "저장하지 않은 변경이 있으면 먼저 저장한 뒤 출력하세요."])}
+    ${sec("6-1. 학생별 성적 추이", [
+      "왼쪽에서 고른 <b>학년도</b>의 모든 차수를 모아, 학생 한 명의 수학·과학·총점·환산 점수와 석차·백분위를 차수별 표와 그래프로 봅니다.",
+      "<b>센터</b>와 <b>학생</b>을 고르고 ◀ ▶로 넘깁니다. 이름과 센터가 같은 학생을 같은 학생으로 묶으니, 차수마다 이름·센터를 똑같이 입력해 주세요.",
+      "석차·백분위 그래프는 위쪽일수록 좋은 성적입니다."])}
     ${sec("7. 시험 목록·가져오기", [
       "모든 시험과 최근 수정 시각·수정자를 봅니다. [열기]로 바로 엽니다.",
       "잘못 저장했을 때는 <b>직전 저장본으로 되돌리기</b>를 씁니다(시험마다 바로 전 저장본 1개).",
@@ -633,6 +641,7 @@ function render() {
   const v = $("#view");
   if (S.tab === "manage") return viewManage(v);
   if (S.tab === "users") return viewUsers(v);
+  if (S.tab === "trend") return viewTrend(v);
   if (!ex) { v.innerHTML = `<div class="empty"><div style="font-size:14px;font-weight:700;color:var(--text)">왼쪽 사이드바에서 학년도와 시험(차수)을 고르세요.</div><div style="font-size:13px;font-weight:400;margin-top:4px">처음이면 [+ 새 시험 만들기] 또는 [시험 목록·가져오기]에서 기존 구글 시트를 가져오세요.</div></div>`; return; }
   ({ input: viewInput, total: viewTotal, rank: viewRank, report: viewReport, config: viewConfig })[S.tab](v);
 }
@@ -1039,6 +1048,79 @@ function viewRank(v) {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "순위");
     XLSX.writeFile(wb, `${ex.year}학년도 ${ex.round}차 ${by[S.rankBy]}${S.center ? "_" + S.center : ""}.xlsx`);
   };
+}
+
+// ---------- 학생별 성적 추이 (같은 학년도 시험들을 이름+센터로 묶음) ----------
+const TREND = { cache: {}, charts: [] };
+async function trendData(year) {
+  const list = S.exams.filter((e) => e.year === year).sort((a, b) => a.round - b.round);
+  const out = [];
+  for (const e of list) {
+    let ex;
+    if (S.exam && S.exam.id === e.id) ex = S.exam; // 열려 있는 시험은 화면의 최신 내용(저장 전 포함)
+    else {
+      const key = e.id + "|" + e.updated_at;
+      if (!TREND.cache[key]) TREND.cache[key] = normExam((await api("examGet", { id: e.id })).exam);
+      ex = TREND.cache[key];
+    }
+    if (ex.students.some((s) => s.name && s.name.trim())) out.push({ round: ex.round, ex, k: calc(ex) });
+  }
+  return out;
+}
+async function viewTrend(v) {
+  TREND.charts.forEach((c) => c.destroy()); TREND.charts = [];
+  const year = S.year;
+  if (!S.exams.some((e) => e.year === year)) { v.innerHTML = `<div class="empty warn">${year}학년도 시험이 없습니다.</div>`; return; }
+  v.innerHTML = `<div class="empty">${year}학년도 시험 자료를 불러오는 중…</div>`;
+  let data;
+  try { data = await trendData(year); } catch (e) { v.innerHTML = `<div class="empty warn">${esc(e.message)}</div>`; return; }
+  if (S.tab !== "trend") return;
+  if (!data.length) { v.innerHTML = `<div class="empty warn">${year}학년도에 학생이 입력된 시험이 없습니다.</div>`; return; }
+  const keyOf = (r) => r.name.trim() + "\u0001" + r.center.trim();
+  const people = new Map();
+  data.forEach((d) => d.k.rows.forEach((r) => { if (!people.has(keyOf(r))) people.set(keyOf(r), { name: r.name.trim(), center: r.center.trim() }); }));
+  const centers = [...new Set([...people.values()].map((p) => p.center))].sort((a, b) => a.localeCompare(b, "ko"));
+  if (!centers.includes(S.trC)) S.trC = centers[0];
+  const names = [...people.values()].filter((p) => p.center === S.trC).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  if (!names.some((p) => p.name === S.trN)) S.trN = names[0]?.name;
+  const key = S.trN + "\u0001" + S.trC;
+  const rows = data.map((d) => { const i = d.k.rows.findIndex((r) => keyOf(r) === key); return i < 0 ? null : { round: d.round, k: d.k, i }; }).filter(Boolean);
+  const G = [["conv", "환산 점수", (k) => k.max.ct], ["tot", "총점", (k) => k.max.tot], ["mt", "수학", (k) => k.max.mt], ["st", "과학", (k) => k.max.st]];
+  const cell = (r, g) => { const c = r.k.cols[g]; return c.v[r.i] == null ? `<td class="b0 muted">미응시</td><td class="muted">-</td><td class="muted">-</td>` : `<td class="b0 big">${f1(c.v[r.i])}</td><td>${c.rk[r.i]} <span class="muted">/ ${r.k.N}</span></td><td>${fp(c.pct[r.i])}</td>`; };
+  v.innerHTML = `<div class="row" style="margin-bottom:12px">
+      <span class="sub">센터</span><select id="trC">${centers.map((c) => `<option ${c === S.trC ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <span class="sub" style="margin-left:6px">학생</span><select id="trN" style="min-width:140px">${names.map((p) => `<option ${p.name === S.trN ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
+      <button class="small" id="trPrev">◀</button><button class="small" id="trNext">▶</button>
+      <span class="hint">${year}학년도 시험 ${data.length}개에서 이름·센터가 같은 학생을 묶어 보여 줍니다. 석차·백분위는 그 시험 전체(전 센터) 기준입니다.</span></div>
+    <div class="tw" style="margin-bottom:16px"><table class="v"><thead>
+      <tr><th rowspan="2">차수</th>${G.map(([, l]) => `<th colspan="3" class="b0">${l}</th>`).join("")}</tr>
+      <tr class="subrow">${G.map(() => `<th class="b0">점수</th><th>석차</th><th>백분위</th>`).join("")}</tr></thead>
+      <tbody>${rows.length ? rows.map((r) => `<tr><td><b>${r.round}차</b></td>${G.map(([g]) => cell(r, g)).join("")}</tr>`).join("") : `<tr><td colspan="13" class="muted">응시 기록이 없습니다.</td></tr>`}</tbody></table></div>
+    <div class="trgrid">${G.map(([g, l]) => ["점수", "석차", "백분위"].map((t) => `<div class="card trc"><div class="trt">${l} ${t} 추이</div><div class="trbox"><canvas data-g="${g}" data-t="${t}"></canvas></div></div>`).join("")).join("")}</div>`;
+  $("#trC").onchange = (e) => { S.trC = e.target.value; S.trN = null; viewTrend(v); };
+  $("#trN").onchange = (e) => { S.trN = e.target.value; viewTrend(v); };
+  const step = (d) => { const j = names.findIndex((p) => p.name === S.trN) + d; if (names[j]) { S.trN = names[j].name; viewTrend(v); } };
+  $("#trPrev").onclick = () => step(-1); $("#trNext").onclick = () => step(1);
+  if (!rows.length || !window.Chart) return;
+  Chart.defaults.font.family = '"WZP","Pretendard","Malgun Gothic",sans-serif';
+  const labels = rows.map((r) => r.round + "차");
+  const valPlugin = { id: "trv", afterDatasetsDraw(ch) { const g = ch.ctx; g.save(); g.textAlign = "center"; g.font = "bold 12px WZP, Pretendard, sans-serif"; g.fillStyle = "#e2e8f0";
+    ch.getDatasetMeta(0).data.forEach((pt, j) => { const y = ch.data.datasets[0].raw[j]; if (y != null) g.fillText(ch.data.datasets[0].fmt(y), pt.x, pt.y - 10); }); g.restore(); } };
+  $$("canvas[data-g]", v).forEach((cv) => {
+    const g = cv.dataset.g, t = cv.dataset.t, gi = G.find((x) => x[0] === g);
+    const raw = rows.map((r) => { const c = r.k.cols[g]; return t === "점수" ? c.v[r.i] : t === "석차" ? c.rk[r.i] : (isNum(c.pct[r.i]) ? Math.round(c.pct[r.i] * 1000) / 10 : null); });
+    const maxY = t === "점수" ? Math.max(...rows.map((r) => gi[2](r.k))) : t === "석차" ? Math.max(...rows.map((r) => r.k.N)) : 100;
+    const col = { conv: "#5eead4", tot: "#a5b4fc", mt: "#fbbf24", st: "#f9a8d4" }[g];
+    TREND.charts.push(new Chart(cv, {
+      type: "line",
+      data: { labels, datasets: [{ data: raw, raw, fmt: (y) => (t === "점수" ? f1(y) : t === "석차" ? y + "등" : y.toFixed(1) + "%"), borderColor: col, backgroundColor: col, pointRadius: 4, pointHoverRadius: 6, tension: .3, spanGaps: false }] },
+      options: { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 22, left: 10, right: 26 } },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.dataset.fmt(c.raw) } } },
+        scales: { x: { ticks: { color: "#cbd5e1", font: { size: 12, weight: "bold" } }, grid: { display: false } },
+          y: { reverse: t !== "점수", min: t === "점수" ? 0 : (t === "석차" ? 1 : 0), max: maxY, ticks: { color: "#64748b", font: { size: 10 } }, grid: { color: "rgba(148,163,184,.12)" } } } },
+      plugins: [valPlugin],
+    }));
+  });
 }
 
 // ---------- 성적표 ----------
