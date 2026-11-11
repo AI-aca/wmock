@@ -101,6 +101,7 @@ table.v{border-collapse:collapse;font-size:13px;width:100%}
 table.v th,table.v td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:center;white-space:nowrap}
 table.v thead th{position:sticky;top:0;background:#141a2b;color:var(--sub);font-weight:600;z-index:2}
 table.v td.l{text-align:left}
+table.v tr.ygap td{border-top:2px solid rgba(139,124,255,.55)}
 table.v tr:hover td{background:rgba(255,255,255,.025)}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;background:var(--glass3);font-size:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -988,7 +989,7 @@ function viewManage(v) {
   v.innerHTML = `<div class="grid2">
    <div class="card"><h3>시험 목록</h3>
     ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>시행일</th><th>응시</th><th>수정</th><th>수정자</th><th></th></tr></thead><tbody>
-     ${ys.map((y) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e) => `<tr><td>${e.year}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
+     ${ys.map((y, yi) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e, ei) => `<tr class="${yi > 0 && ei === 0 ? "ygap" : ""}"><td>${ei === 0 ? `<b>${e.year}</b>` : `<span class="muted">${e.year}</span>`}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
        <td><button class="small" data-open="${e.id}">열기</button> <button class="small danger" data-delx="${e.id}">삭제</button></td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
     ${S.exam?.id && S.backup ? `<div style="margin-top:14px" class="hint">현재 시험(${S.exam.year}학년도 ${S.exam.round}차)의 직전 저장본: ${new Date(S.backup.saved_at).toLocaleString("ko-KR")} · ${S.backup.n}명 <button class="small" id="restore">이 저장본으로 되돌리기</button></div>` : ""}
    </div>
