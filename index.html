@@ -109,6 +109,14 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
 .hint{font-size:12.5px;color:var(--muted);line-height:1.7}
 .kpis{display:flex;gap:10px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.seg button{border:none;border-radius:0;background:transparent;padding:9px 16px;color:var(--sub)}
+.seg button+button{border-left:1px solid var(--line2)}
+.seg button.on{background:var(--grad);color:#0a0d18;font-weight:700}
+table.v .sumM{background:rgba(139,124,255,.12)}table.v .sumS{background:rgba(69,212,200,.12)}table.v .sumT{background:rgba(74,222,128,.12)}
+table.v td.sumM.b0,table.v td.sumS.b0,table.v td.sumT.b0,table.v th.b0{border-left:2px solid var(--line2)}
+table.v td.big{font-weight:800;color:var(--text);font-size:13.5px}
+table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(--text)}
 .kpi{padding:10px 14px;border-radius:12px;background:var(--glass2);border:1px solid var(--line);min-width:110px}
 .kpi .k{font-size:11.5px;color:var(--muted)}.kpi .v{font-size:18px;font-weight:800;margin-top:2px}
 
@@ -506,23 +514,38 @@ function render() {
 
 // ---------- 성적 입력 ----------
 function centersOf(ex) { return [...new Set(ex.students.map((s) => s.center.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")); }
+const pref = (k, d) => { try { return localStorage.getItem("mock_" + k) ?? d; } catch { return d; } };
+const setPref = (k, v) => { try { localStorage.setItem("mock_" + k, v); } catch { /* 무시 */ } };
+S.inMode = pref("inMode", "m"); // 성적 입력 보기: m=수학만, s=과학만, all=전체
+S.foldM = pref("foldM", "1") === "1"; S.foldS = pref("foldS", "1") === "1"; // 종합성적 영역 접기
+const showM = () => S.inMode !== "s", showS = () => S.inMode !== "m";
+function visCols() {
+  const c = S.exam.config, nm = c.math.items.length, ns = c.sci.items.length, out = [0, 1];
+  if (showM()) for (let i = 0; i < nm; i++) out.push(2 + i);
+  if (showS()) for (let i = 0; i < ns; i++) out.push(2 + nm + i);
+  return out;
+}
+function autoSpan() { const c = S.exam.config; return (showM() ? c.math.areas.length + 1 : 0) + (showS() ? c.sci.areas.length + 1 : 0) + 1; }
 function viewInput(v) {
-  const ex = S.exam, c = ex.config, mi = c.math.items, si = c.sci.items;
-  if (!mi.length && !si.length) { v.innerHTML = `<div class="empty">문항 구성이 없습니다. [시험 설정]에서 문항번호·영역·배점을 먼저 입력하세요.</div>`; return; }
+  const ex = S.exam, c = ex.config;
+  if (!c.math.items.length && !c.sci.items.length) { v.innerHTML = `<div class="empty">문항 구성이 없습니다. [시험 설정]에서 문항번호·영역·배점을 먼저 입력하세요.</div>`; return; }
+  const mi = showM() ? c.math.items : [], si = showS() ? c.sci.items : [];
   while (ex.students.length < 1 || ex.students[ex.students.length - 1].name) ex.students.push(blankStu());
-  const mA = c.math.areas, sA = c.sci.areas;
+  const mA = showM() ? c.math.areas : [], sA = showS() ? c.sci.areas : [];
+  const span = autoSpan();
   const head = `<thead>
    <tr><th class="stk" style="left:0" rowspan="4">NO</th><th class="stk" style="left:38px" rowspan="4">이름</th><th class="stk" style="left:138px" rowspan="4">센터</th><th>문항</th>
      ${mi.map((it) => `<th class="m">${esc(it.no)}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.no)}</th>`).join("")}
-     ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}<th class="m">수학 계</th>${sA.map((a) => `<th class="s">${esc(a)}</th>`).join("")}<th class="s">과학 계</th><th>총계</th></tr>
-   <tr><th>영역</th>${mi.map((it) => `<th class="m">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.area.slice(0, 1))}</th>`).join("")}<th colspan="${mA.length + sA.length + 3}">자동 계산</th></tr>
-   <tr><th>만점</th>${mi.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${si.map((it) => `<th>${fmax(it.max)}</th>`).join("")}<th colspan="${mA.length + sA.length + 3}" id="maxRow"></th></tr>
-   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}"></th>`).join("")}<th colspan="${mA.length + sA.length + 3}" id="avgRow"></th></tr></thead>`;
+     ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}${showM() ? `<th class="m">수학 계</th>` : ""}${sA.map((a) => `<th class="s">${esc(a)}</th>`).join("")}${showS() ? `<th class="s">과학 계</th>` : ""}<th>총계</th></tr>
+   <tr><th>영역</th>${mi.map((it) => `<th class="m">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.area.slice(0, 1))}</th>`).join("")}<th colspan="${span}">자동 계산</th></tr>
+   <tr><th>만점</th>${mi.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${si.map((it) => `<th>${fmax(it.max)}</th>`).join("")}<th colspan="${span}" id="maxRow"></th></tr>
+   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}"></th>`).join("")}<th colspan="${span}" id="avgRow"></th></tr></thead>`;
   const body = ex.students.map((s, r) => rowHtml(s, r)).join("");
   v.innerHTML = `<div class="row noprint" style="margin-bottom:12px">
       <div class="kpis"><div class="kpi"><div class="k">입력 학생</div><div class="v" id="kN"></div></div><div class="kpi"><div class="k">센터</div><div class="v" id="kC"></div></div></div>
+      <div class="seg" id="inMode">${[["m", "수학만"], ["s", "과학만"], ["all", "전체"]].map(([k, l]) => `<button class="${S.inMode === k ? "on" : ""}" data-mode="${k}">${l}</button>`).join("")}</div>
       <div class="grow"></div>
-      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 엑셀에서 이름·센터·점수 영역을 복사해 이름 칸에 붙여넣으면 한 번에 들어갑니다. 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점 초과는 빨간색.</div>
+      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 엑셀에서 복사해 붙여넣으면 지금 보이는 열 순서대로 들어갑니다(수학 점수는 [수학만] 화면에서). 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점 초과는 빨간색.</div>
       <button class="small" id="addRows">+ 10줄</button></div>
     <div class="tw" id="gridWrap"><table class="g" id="grid">${head}<tbody>${body}</tbody></table></div>`;
   refreshAll();
@@ -532,6 +555,7 @@ function viewInput(v) {
   grid.addEventListener("paste", onGridPaste);
   grid.addEventListener("focusout", onGridChange);
   $("#addRows").onclick = () => { for (let i = 0; i < 10; i++) ex.students.push(blankStu()); viewInput(v); };
+  $("#inMode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.inMode = b.dataset.mode; setPref("inMode", S.inMode); viewInput(v); };
 }
 function blankStu() { const c = S.exam.config; return { name: "", center: "", m: c.math.items.map(() => null), s: c.sci.items.map(() => null) }; }
 function rowHtml(s, r) {
@@ -539,8 +563,8 @@ function rowHtml(s, r) {
   return `<tr data-r="${r}"><td class="stk" style="left:0;width:38px;min-width:38px;color:var(--muted)">${r + 1}</td>
     <td class="stk nm" style="left:38px;min-width:100px;width:100px"><input data-c="0" value="${esc(s.name)}"></td>
     <td class="stk nm" style="left:138px;min-width:80px;width:80px"><input data-c="1" value="${esc(s.center)}"></td><td></td>
-    ${s.m.map((x, i) => `<td style="min-width:38px"><input data-c="${2 + i}" value="${fmt(x)}"></td>`).join("")}
-    ${s.s.map((x, i) => `<td style="min-width:38px"><input data-c="${2 + s.m.length + i}" value="${fmt(x)}"></td>`).join("")}
+    ${showM() ? s.m.map((x, i) => `<td style="min-width:38px"><input data-c="${2 + i}" value="${fmt(x)}"></td>`).join("") : ""}
+    ${showS() ? s.s.map((x, i) => `<td style="min-width:38px"><input data-c="${2 + s.m.length + i}" value="${fmt(x)}"></td>`).join("") : ""}
     ${autoCells(s)}</tr>`;
 }
 function stuCalc(s) {
@@ -551,9 +575,9 @@ function stuCalc(s) {
   return { m, s: sc, mt, st, tot: sumOrDash([mt, st]) };
 }
 function autoCells(s) {
-  if (!s.name) return `<td class="auto" colspan="${S.exam.config.math.areas.length + S.exam.config.sci.areas.length + 3}"></td>`;
+  if (!s.name) return `<td class="auto" colspan="${autoSpan()}"></td>`;
   const k = stuCalc(s);
-  return [...k.m.map(f1), f1(k.mt), ...k.s.map(f1), f1(k.st), f1(k.tot)].map((x) => `<td class="auto">${x}</td>`).join("");
+  return [...(showM() ? [...k.m.map(f1), f1(k.mt)] : []), ...(showS() ? [...k.s.map(f1), f1(k.st)] : []), f1(k.tot)].map((x) => `<td class="auto">${x}</td>`).join("");
 }
 function cellRef(r, c) { return $(`#grid tr[data-r="${r}"] input[data-c="${c}"]`); }
 function setCell(r, c, raw) {
@@ -627,8 +651,8 @@ function onGridKey(e) {
   let to = null;
   if (e.key === "Enter" || e.key === "ArrowDown") to = [r + 1, c];
   else if (e.key === "ArrowUp") to = [r - 1, c];
-  else if (e.key === "ArrowRight" && inp.selectionStart === inp.value.length) to = [r, c + 1];
-  else if (e.key === "ArrowLeft" && inp.selectionStart === 0) to = [r, c - 1];
+  else if (e.key === "ArrowRight" && inp.selectionStart === inp.value.length) { const vc = visCols(); to = [r, vc[vc.indexOf(c) + 1]]; }
+  else if (e.key === "ArrowLeft" && inp.selectionStart === 0) { const vc = visCols(); to = [r, vc[vc.indexOf(c) - 1]]; }
   if (to) { const t = cellRef(...to); if (t) { e.preventDefault(); t.focus(); t.select(); } }
 }
 function onGridPaste(e) {
@@ -638,13 +662,13 @@ function onGridPaste(e) {
   e.preventDefault();
   const lines = text.replace(/\r/g, "").replace(/\n$/, "").split("\n").map((l) => l.split("\t"));
   const ex = S.exam, r0 = Number(inp.closest("tr").dataset.r), c0 = Number(inp.dataset.c);
-  const ncol = 2 + ex.config.math.items.length + ex.config.sci.items.length;
+  const vc = visCols(), j0 = vc.indexOf(c0), colAt = (j) => vc[j0 + j]; // 보이는 열 순서대로
   while (ex.students.length < r0 + lines.length + 1) ex.students.push(blankStu());
-  lines.forEach((cells, i) => cells.forEach((v, j) => { if (c0 + j < ncol) setCell(r0 + i, c0 + j, v); }));
+  lines.forEach((cells, i) => cells.forEach((v, j) => { if (colAt(j) != null) setCell(r0 + i, colAt(j), v); }));
   setDirty(true); viewInput($("#view"));
   const over = [];
   lines.forEach((cells, i) => cells.forEach((v, j) => {
-    const c = c0 + j, t = String(v).trim(); if (c < 2 || c >= ncol || t === "") return;
+    const c = colAt(j), t = String(v).trim(); if (c == null || c < 2 || t === "") return;
     const n = Number(t.replace(/,/g, "")), { subj, it } = itemOf(c);
     if (!Number.isFinite(n) || n < 0 || n > it.max + 1e-9) over.push(`${ex.students[r0 + i].name || (r0 + i + 1) + "번 줄"} · ${subj} ${it.no}번: ${t} (만점 ${fmax(it.max)})`);
   }));
@@ -769,13 +793,24 @@ function viewTotal(v) {
   const keys = [...k.mA.map((a, i) => ["m" + i, a, k.max.m[i]]), ["mt", "수학 계", k.max.mt], ...k.sA.map((a, i) => ["s" + i, a, k.max.s[i]]), ["st", "과학 계", k.max.st], ["tot", "총점", k.max.tot], ["conv", "환산 점수", k.max.ct]];
   const avgOf = (key) => (key === "mt" ? k.A.mt : key === "st" ? k.A.st : key === "tot" ? k.A.tot : key === "conv" ? k.A.ct : k.cols[key].avg);
   const idx = k.rows.map((_, i) => i).filter((i) => !S.center || k.rows[i].center === S.center);
+  const shown = keys.filter(([key]) => (key[0] === "m" && key !== "mt" ? !S.foldM : key[0] === "s" && key !== "st" ? !S.foldS : true));
+  const sumCls = (key) => ({ mt: "sumM", st: "sumS", tot: "sumT", conv: "sumT" }[key] || "");
+  const firstCls = (key) => key === "conv" ? "" : (key === "tot" || shown.find(([k2]) => k2[0] === key[0] && k2 !== "tot")?.[0] === key ? "b0" : "");
   v.innerHTML = `<div class="row" style="margin-bottom:12px">${centerFilter(ex)}<span class="hint">석차·백분위는 전체(전 센터) 기준입니다.</span><div class="grow"></div><button class="small" id="xls">엑셀로 저장</button></div>
    <div class="card" style="margin-bottom:14px"><h3>백분위 구간별 환산 점수 평균</h3>
      <table class="v"><thead><tr><th>구분</th>${k.bands.map((b) => `<th>${Math.round(b.lo * 100)}~${Math.round(b.hi * 100)}%</th>`).join("")}</tr></thead>
      <tbody><tr><td>수학 환산</td>${k.bands.map((b) => `<td>${f1(b.m)}</td>`).join("")}</tr><tr><td>과학 환산</td>${k.bands.map((b) => `<td>${f1(b.s)}</td>`).join("")}</tr></tbody></table></div>
-   <div class="tw"><table class="v"><thead><tr><th>No</th><th>이름</th><th>센터</th>${keys.map(([, l]) => `<th colspan="3">${esc(l)}</th>`).join("")}</tr></thead>
-   <tbody><tr style="color:var(--muted)"><td></td><td>만점/평균</td><td></td>${keys.map(([key, , mx]) => `<td>${fmax(mx)}</td><td colspan="2">평균 ${f1(avgOf(key))}</td>`).join("")}</tr>
-   ${idx.map((i, n) => { const r = k.rows[i]; return `<tr><td>${n + 1}</td><td class="l">${esc(r.name)}</td><td>${esc(r.center)}</td>${keys.map(([key]) => { const col = k.cols[key]; return `<td>${f1(col.v[i])}</td><td class="muted">${col.rk[i] ?? "미응시"}</td><td class="muted">${fp(col.pct[i], "미응시")}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>`;
+   <div class="row" style="margin:0 0 8px"><span class="hint">머리글의 [수학 ▸] [과학 ▸]를 누르면 영역별 점수가 펼쳐집니다.</span><div class="grow"></div><button class="small" id="foldAll">${S.foldM || S.foldS ? "전체 펼치기" : "전체 접기"}</button></div>
+   <div class="tw"><table class="v"><thead>
+     <tr><th rowspan="2">No</th><th rowspan="2">이름</th><th rowspan="2">센터</th>
+       <th class="fold b0" data-g="m" colspan="${(S.foldM ? 1 : k.mA.length + 1) * 3}">수학 ${S.foldM ? "▸" : "▾"}</th>
+       <th class="fold b0" data-g="s" colspan="${(S.foldS ? 1 : k.sA.length + 1) * 3}">과학 ${S.foldS ? "▸" : "▾"}</th>
+       <th class="b0" colspan="6">합계</th></tr>
+     <tr>${shown.map(([key, l]) => `<th colspan="3" class="${sumCls(key)} ${firstCls(key)}">${esc(l)}</th>`).join("")}</tr></thead>
+   <tbody><tr style="color:var(--muted)"><td></td><td>만점/평균</td><td></td>${shown.map(([key, , mx]) => `<td class="${sumCls(key)} ${firstCls(key)}">${fmax(mx)}</td><td colspan="2" class="${sumCls(key)}">평균 ${f1(avgOf(key))}</td>`).join("")}</tr>
+   ${idx.map((i, n) => { const r = k.rows[i]; return `<tr><td>${n + 1}</td><td class="l">${esc(r.name)}</td><td>${esc(r.center)}</td>${shown.map(([key]) => { const col = k.cols[key], sc = sumCls(key); return `<td class="${sc} ${firstCls(key)} ${sc ? "big" : ""}">${f1(col.v[i])}</td><td class="muted ${sc}">${col.rk[i] ?? "미응시"}</td><td class="muted ${sc}">${fp(col.pct[i], "미응시")}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>`;
+  v.querySelectorAll("th.fold").forEach((th) => (th.onclick = () => { if (th.dataset.g === "m") { S.foldM = !S.foldM; setPref("foldM", S.foldM ? "1" : "0"); } else { S.foldS = !S.foldS; setPref("foldS", S.foldS ? "1" : "0"); } viewTotal(v); }));
+  $("#foldAll").onclick = () => { const f = !(S.foldM || S.foldS); S.foldM = S.foldS = f; setPref("foldM", f ? "1" : "0"); setPref("foldS", f ? "1" : "0"); viewTotal(v); };
   $("#fCenter").onchange = (e) => { S.center = e.target.value; viewTotal(v); };
   $("#xls").onclick = async () => {
     await needXLSX();
