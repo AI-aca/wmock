@@ -495,9 +495,25 @@ function setDirty(v) {
   document.title = (v ? "● " : "") + "영재학교 모의고사 관리";
 }
 window.addEventListener("beforeunload", (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+// 문항 만점을 넘는 점수 찾기 / 만점으로 맞추기
+function overScores(config, students) {
+  const out = [];
+  students.forEach((s, r) => [["math", "m", "수학"], ["sci", "s", "과학"]].forEach(([key, f, subj]) => (s[f] || []).forEach((v, i) => {
+    const it = config[key].items[i];
+    if (it && isNum(v) && v > (Number(it.max) || 0) + 1e-9) out.push({ s, f, i, max: Number(it.max) || 0, txt: `${s.name || r + 1 + "번 줄"} · ${subj} ${it.no}번: ${fmax(v)}점 (만점 ${fmax(it.max)})` });
+  })));
+  return out;
+}
+function capScores(list) { list.forEach((o) => (o.s[o.f][o.i] = o.max)); return list.length; }
+const overText = (list) => list.slice(0, 12).map((o) => o.txt).join("\n") + (list.length > 12 ? `\n… 외 ${list.length - 12}개` : "");
 async function save() {
   if (!S.exam) return;
   const ex = S.exam;
+  const ov = overScores(ex.config, ex.students.filter((s) => s.name.trim()));
+  if (ov.length) {
+    if (!(await confirmBox(`⚠ 문항 만점을 넘는 점수가 ${ov.length}개 있어 그대로는 저장할 수 없습니다.\n\n${overText(ov)}\n\n이 점수들을 문항 만점으로 맞추고 저장할까요?`, "만점으로 맞추고 저장", "취소"))) return;
+    capScores(ov); if (S.tab === "input") viewInput($("#view"));
+  }
   const names = ex.students.filter((s) => s.name.trim());
   busy("저장 중…");
   try {
@@ -528,7 +544,7 @@ $("#btnGuide").onclick = () => {
       "<b>[수학만] [과학만] [전체]</b>로 보이는 열을 바꿉니다.",
       "<b>0점은 반드시 0</b>, 미응시(안 푼 과목)는 빈칸으로 둡니다.",
       "엑셀에서 여러 칸을 복사해 붙여넣으면 <b>지금 화면에 보이는 열 순서</b>대로 들어갑니다. 수학 점수는 [수학만] 화면에서 붙여넣으세요.",
-      "배점보다 큰 점수는 경고가 뜨고 빨간색으로 표시됩니다.",
+      "배점보다 큰 점수는 입력할 수 없습니다(안내창이 뜨고 지워짐). 붙여넣기에서도 빈칸으로 남기고 알려 줍니다.",
       "같은 이름은 파란색으로 표시됩니다. 동명이인이면 이름 뒤에 숫자를 붙이세요(홍길동1).",
       "줄이 모자라면 <b>[+ 10줄]</b>. 오른쪽 자동 계산 열과 만점·평균 행은 저절로 계산됩니다.",
       "저장: 오른쪽 위 <b>[저장]</b> 또는 <span class='kbd'>Ctrl</span>+<span class='kbd'>S</span>. 저장하지 않고 창을 닫으면 경고가 뜹니다."])}
@@ -633,7 +649,7 @@ function viewInput(v) {
       <div class="kpis"><div class="kpi"><div class="k">입력 학생</div><div class="v" id="kN"></div></div><div class="kpi"><div class="k">센터</div><div class="v" id="kC"></div></div></div>
       <div class="seg" id="inMode">${[["m", "수학만"], ["s", "과학만"], ["all", "전체"]].map(([k, l]) => `<button class="${S.inMode === k ? "on" : ""}" data-mode="${k}">${l}</button>`).join("")}</div>
       <div class="grow"></div>
-      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 엑셀에서 복사해 붙여넣으면 지금 보이는 열 순서대로 들어갑니다(수학 점수는 [수학만] 화면에서). 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점 초과는 빨간색.</div>
+      <div class="hint" style="max-width:560px">0점은 반드시 0, 미응시는 빈칸. 엑셀에서 복사해 붙여넣으면 지금 보이는 열 순서대로 들어갑니다(수학 점수는 [수학만] 화면에서). 동명이인은 <span style="background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px">파란색</span>으로 표시되니 이름 뒤에 숫자를 붙이세요(홍길동1). 배점을 넘는 점수는 입력되지 않습니다.</div>
       <button class="small" id="addRows">+ 10줄</button></div>
     <div class="tw" id="gridWrap"><table class="g" id="grid">${head}<tbody>${body}</tbody></table></div>`;
   refreshAll();
@@ -727,12 +743,12 @@ async function onGridChange(e) {
   let msg = "";
   if (!Number.isFinite(n)) msg = `숫자가 아닌 값(${raw})은 저장되지 않습니다.`;
   else if (n < 0) msg = `음수 점수(${raw})가 입력되었습니다.`;
-  else if (n > it.max + 1e-9) msg = `만점(${fmax(it.max)}점)보다 큰 점수(${raw}점)가 입력되었습니다.`;
+  else if (n > it.max + 1e-9) msg = `만점(${fmax(it.max)}점)보다 큰 점수(${raw}점)는 입력할 수 없습니다.`;
   if (!msg) return;
+  inp.value = ""; setCell(r, c, ""); refreshRow(r); refreshStats(); setDirty(true);
   warnOpen = true;
-  const keep = await confirmBox(`⚠ ${name} · ${subj} ${it.no}번 (${it.area})\n${msg}\n\n다시 입력하시겠어요?`, "지우고 다시 입력", "그대로 두기").then((x) => !x);
+  await confirmBox(`⚠ ${name} · ${subj} ${it.no}번 (${it.area})\n${msg}\n\n입력할 수 없어 지웠습니다. 다시 입력하세요.`, "확인", "");
   warnOpen = false;
-  if (!keep) { inp.value = ""; setCell(r, c, ""); refreshRow(r); refreshStats(); setDirty(true); }
   inp.focus(); inp.select();
 }
 function onGridKey(e) {
@@ -754,15 +770,18 @@ function onGridPaste(e) {
   const ex = S.exam, r0 = Number(inp.closest("tr").dataset.r), c0 = Number(inp.dataset.c);
   const vc = visCols(), j0 = vc.indexOf(c0), colAt = (j) => vc[j0 + j]; // 보이는 열 순서대로
   while (ex.students.length < r0 + lines.length + 1) ex.students.push(blankStu());
-  lines.forEach((cells, i) => cells.forEach((v, j) => { if (colAt(j) != null) setCell(r0 + i, colAt(j), v); }));
-  setDirty(true); viewInput($("#view"));
   const over = [];
   lines.forEach((cells, i) => cells.forEach((v, j) => {
-    const c = colAt(j), t = String(v).trim(); if (c == null || c < 2 || t === "") return;
-    const n = Number(t.replace(/,/g, "")), { subj, it } = itemOf(c);
-    if (!Number.isFinite(n) || n < 0 || n > it.max + 1e-9) over.push(`${ex.students[r0 + i].name || (r0 + i + 1) + "번 줄"} · ${subj} ${it.no}번: ${t} (만점 ${fmax(it.max)})`);
+    const c = colAt(j); if (c == null) return;
+    const t = String(v).trim();
+    if (c >= 2 && t !== "") {
+      const n = Number(t.replace(/,/g, "")), { subj, it } = itemOf(c);
+      if (!Number.isFinite(n) || n < 0 || n > it.max + 1e-9) { over.push(`${ex.students[r0 + i].name || String(cells[0] || "").trim() || (r0 + i + 1) + "번 줄"} · ${subj} ${it.no}번: ${t} (만점 ${fmax(it.max)})`); setCell(r0 + i, c, ""); return; }
+    }
+    setCell(r0 + i, c, v);
   }));
-  if (over.length) confirmBox(`⚠ 붙여넣은 값 중 만점을 넘거나 잘못된 점수가 ${over.length}개 있습니다. 빨간 칸을 확인하세요.\n\n${over.slice(0, 12).join("\n")}${over.length > 12 ? `\n… 외 ${over.length - 12}개` : ""}`, "확인", "");
+  setDirty(true); viewInput($("#view"));
+  if (over.length) confirmBox(`⚠ 만점을 넘거나 잘못된 점수 ${over.length}개는 입력하지 않고 빈칸으로 두었습니다. 확인 후 다시 입력하세요.\n\n${over.slice(0, 12).join("\n")}${over.length > 12 ? `\n… 외 ${over.length - 12}개` : ""}`, "확인", "");
   else toast(`${lines.length}줄을 붙여넣었습니다.`);
 }
 
@@ -1271,7 +1290,9 @@ async function runImport() {
   const ok = pending.filter((p) => !p.error);
   if (!ok.length) return;
   const over = ok.filter((p) => S.exams.some((e) => e.year === p.year && e.round === p.round));
-  if (!(await confirmBox(`${ok.length}개 시험을 가져옵니다.${over.length ? `\n이미 있는 ${over.map((p) => p.year + "학년도 " + p.round + "차").join(", ")}는 내용을 바꿉니다(직전 내용은 백업).` : ""}`, "가져오기"))) return;
+  const capN = ok.reduce((a, p) => a + overScores(p.config, p.students).length, 0);
+  if (!(await confirmBox(`${ok.length}개 시험을 가져옵니다.${over.length ? `\n이미 있는 ${over.map((p) => p.year + "학년도 " + p.round + "차").join(", ")}는 내용을 바꿉니다(직전 내용은 백업).` : ""}${capN ? `\n※ 문항 만점을 넘는 점수 ${capN}개는 문항 만점으로 맞춰서 가져옵니다.` : ""}`, "가져오기"))) return;
+  ok.forEach((p) => capScores(overScores(p.config, p.students)));
   busy("가져오는 중…"); let n = 0;
   try {
     for (const p of ok) {
