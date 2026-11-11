@@ -122,10 +122,10 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 .kpi .k{font-size:11.5px;color:var(--muted)}.kpi .v{font-size:18px;font-weight:800;margin-top:2px}
 
 /* 성적표 (A4) — 글꼴: Pretendard(생기부 성적표와 같은 글꼴). PDF용으로 4가지 굵기만 따로 등록 */
-@font-face{font-family:"WZP";font-weight:400;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Regular.woff2) format("woff2")}
-@font-face{font-family:"WZP";font-weight:600;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-SemiBold.woff2) format("woff2")}
-@font-face{font-family:"WZP";font-weight:700;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Bold.woff2) format("woff2")}
-@font-face{font-family:"WZP";font-weight:800;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-ExtraBold.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:400;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-Regular.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:600;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:700;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-Bold.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:800;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-ExtraBold.woff2) format("woff2")}
 .rpwrap{display:flex;justify-content:center;padding:10px 0 40px;overflow:auto}
 .rp{--wr:#047857;--wr2:#0891b2;--wg:#10b981;--ink:#0f172a;--sub2:#64748b;--ln:#e2e8f0;--pale:#f8fafc;
   width:794px;height:1123px;background:#fff;color:var(--ink);padding:36px 44px 30px;display:flex;flex-direction:column;font-family:"WZP","Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:12px;letter-spacing:-.02em;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative;overflow:hidden}
@@ -963,7 +963,7 @@ async function fontOpt() {
     try {
       const rules = [];
       for (const w of [["Regular", 400], ["SemiBold", 600], ["Bold", 700], ["ExtraBold", 800]]) {
-        const b = await fetch(`https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-${w[0]}.woff2`).then((r) => { if (!r.ok) throw 0; return r.blob(); });
+        const b = await fetch(`https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-${w[0]}.woff2`).then((r) => { if (!r.ok) throw 0; return r.blob(); });
         const url = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
         rules.push(`@font-face{font-family:"WZP";font-weight:${w[1]};src:url(${url}) format("woff2")}`);
       }
