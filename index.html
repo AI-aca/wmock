@@ -113,6 +113,15 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:1200px){.grid2{grid-template-columns:1fr}}
 .itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
+.qtbl{table-layout:fixed;width:auto}.qtbl input.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
+.warnTxt{color:#fbbf24;font-weight:600}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(148,163,184,.28);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.5);background-clip:padding-box;border:2px solid transparent}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+@supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.35) transparent}}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .hint{font-size:12.5px;color:var(--muted);line-height:1.7}
 .kpis{display:flex;gap:10px;flex-wrap:wrap}
 .seg{display:inline-flex;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
@@ -695,10 +704,11 @@ function onGridPaste(e) {
 }
 
 // ---------- 시험 설정 ----------
+const NO_RE = /^\d+(-\d+)?$/; // 문항번호: 1 또는 1-1
 function viewConfig(v) {
   const ex = S.exam, c = ex.config;
   const itemRows = (key) => c[key].items.map((it, i) => `<tr><td class="muted">${i + 1}</td>
-      <td><input data-k="${key}" data-i="${i}" data-f="no" value="${esc(it.no)}"></td>
+      <td><input data-k="${key}" data-i="${i}" data-f="no" data-prev="${esc(it.no)}" value="${esc(it.no)}" placeholder="예: 1, 1-1" class="${it.no === "" || NO_RE.test(it.no) ? "" : "bad"}"></td>
       <td><select data-k="${key}" data-i="${i}" data-f="area">${c[key].areas.map((a) => `<option ${a === it.area ? "selected" : ""}>${esc(a)}</option>`).join("")}${c[key].areas.includes(it.area) ? "" : `<option selected>${esc(it.area)}</option>`}</select></td>
       <td><input data-k="${key}" data-i="${i}" data-f="max" type="number" step="0.5" value="${it.max}"></td>
       <td><button class="small ghost" data-del="${key}" data-i="${i}" title="문항 삭제(입력된 점수도 함께 삭제)">✕</button></td></tr>`).join("");
@@ -706,9 +716,9 @@ function viewConfig(v) {
     const k = calc(ex);
     const mx = key === "math" ? k.max.m : k.max.s, areas = c[key].areas;
     return `<div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">${label} 문항 (${c[key].items.length}문항 · 만점 ${fmax(key === "math" ? k.max.mt : k.max.st)})</h3><div class="grow"></div>
-      <button class="small" data-bulk="${key}">한꺼번에 입력</button><button class="small" data-add="${key}">+ 문항</button></div>
+      <button class="small" data-add="${key}">+ 문항</button></div>
       <div class="hint" style="margin-bottom:8px">영역: ${areas.map((a, i) => `${esc(a)} ${fmax(mx[i])}점`).join(" · ")}</div>
-      <div class="tw" style="max-height:420px"><table class="v itemtbl"><thead><tr><th style="width:40px">#</th><th>문항번호</th><th>영역</th><th style="width:90px">배점</th><th style="width:40px"></th></tr></thead><tbody>${itemRows(key)}</tbody></table></div></div>`;
+      <div class="tw" style="max-height:420px"><table class="v itemtbl qtbl"><thead><tr><th style="width:40px">#</th><th style="width:110px">문항번호</th><th style="width:130px">영역</th><th style="width:90px">배점</th><th style="width:40px"></th></tr></thead><tbody>${itemRows(key)}</tbody></table></div></div>`;
   };
   v.innerHTML = `<div class="grid2">
     <div class="card"><h3>기본 정보</h3>
@@ -719,6 +729,8 @@ function viewConfig(v) {
         <span class="sub">수학 환산 비율</span><input id="cKm" value="${esc(c.conv.math)}">
         <span class="sub">과학 환산 비율</span><input id="cKs" value="${esc(c.conv.sci)}">
       </div>
+      <div class="row" style="margin-top:10px"><button class="small" id="convCalc">환산 비율로 만점 계산</button></div>
+      <div id="convOut" class="hint" style="margin-top:6px"></div>
       <p class="hint" style="margin-top:8px">환산 비율은 1.2, 2/3처럼 입력합니다. 성적표 제목: [ ${ex.year}학년도 영재학교 대비 ] ${esc(c.title)} [${ex.round}차] 결과표</p>
       <div style="margin-top:12px"><div class="lab">메모</div><textarea id="cM" rows="2">${esc(c.memo)}</textarea></div>
     </div>
@@ -744,15 +756,29 @@ function viewConfig(v) {
   v.oninput = (e) => {
     const t = e.target;
     if (t.dataset.cut != null) { const x = c.cutoffs[Number(t.dataset.cut)]; x[t.dataset.f] = t.dataset.f === "name" ? t.value : (t.value === "" ? null : Number(t.value)); ch(); }
+    else if (t.dataset.k && t.dataset.f === "no") t.classList.toggle("bad", t.value.trim() !== "" && !/^\d+(-\d*)?$/.test(t.value.trim()));
     else if (t.dataset.k && t.dataset.f !== "area") { const it = c[t.dataset.k].items[Number(t.dataset.i)]; it[t.dataset.f] = t.dataset.f === "max" ? Number(t.value) || 0 : t.value; ch(); }
   };
   v.onchange = (e) => {
     const t = e.target;
+    if (t.dataset.k && t.dataset.f === "no") {
+      const val = t.value.trim();
+      if (val !== "" && !NO_RE.test(val)) { t.value = t.dataset.prev; t.classList.remove("bad"); confirmBox("문항번호는 1 또는 1-1 같은 형식만 입력할 수 있습니다.\n(예: 20-1 가능, 20-(1)·20번 불가)", "확인", ""); return; }
+      t.value = val; t.dataset.prev = val; c[t.dataset.k].items[Number(t.dataset.i)].no = val; ch(); return;
+    }
     if (t.dataset.k && t.dataset.f === "area") { c[t.dataset.k].items[Number(t.dataset.i)].area = t.value; ch(); viewConfig(v); }
     else if (t.dataset.cut != null || (t.dataset.k && t.dataset.f === "max")) viewConfig(v);
   };
   v.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "convCalc") {
+      const k = calc(ex), o = $("#convOut");
+      if (!(k.max.mt > 0) && !(k.max.st > 0)) { o.innerHTML = `<span class="warnTxt">⚠️ 문항 배점이 없습니다. 아래 수학·과학 문항 정보부터 입력하세요.</span>`; return; }
+      o.innerHTML = `현재 입력된 문항 기준 → 수학 환산 만점 <b>${fmax(k.max.cm)}</b> (원점수 ${fmax(k.max.mt)}) · 과학 환산 만점 <b>${fmax(k.max.cs)}</b> (원점수 ${fmax(k.max.st)}) · 환산 총점 만점 <b>${fmax(k.max.ct)}</b>`
+        + (!(k.max.mt > 0) ? `<br><span class="warnTxt">⚠️ 수학 문항 배점이 없습니다. 아래 수학 문항 정보부터 입력하세요.</span>` : "")
+        + (!(k.max.st > 0) ? `<br><span class="warnTxt">⚠️ 과학 문항 배점이 없습니다. 아래 과학 문항 정보부터 입력하세요.</span>` : "");
+      return;
+    }
     if (t.id === "cutAdd") { c.cutoffs.push({ name: "", math: null, sci: null }); ch(); viewConfig(v); }
     else if (t.dataset.cutdel != null) { c.cutoffs.splice(Number(t.dataset.cutdel), 1); ch(); viewConfig(v); }
     else if (t.dataset.add) { addItems(t.dataset.add, [{ no: "", area: c[t.dataset.add].areas[0], max: 0 }]); viewConfig(v); }
@@ -761,7 +787,7 @@ function viewConfig(v) {
       const used = ex.students.some((s) => isNum((key === "math" ? s.m : s.s)[i]));
       if (used && !(await confirmBox("이 문항에 입력된 학생 점수도 함께 지워집니다. 삭제할까요?", "삭제"))) return;
       c[key].items.splice(i, 1); ex.students.forEach((s) => (key === "math" ? s.m : s.s).splice(i, 1)); ch(); viewConfig(v);
-    } else if (t.dataset.bulk) bulkItems(t.dataset.bulk);
+    }
   };
 }
 function addItems(key, items) {
