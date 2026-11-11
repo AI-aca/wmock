@@ -52,7 +52,8 @@ h1,h2,h3,h4,p{margin:0}
 /* 앱 */
 #app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
 aside{border-right:1px solid var(--line);background:rgba(8,11,20,.6);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0;height:100vh;overflow:auto}
-.brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:15px}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;font-size:15px;cursor:pointer;border-radius:10px}
+.brand:hover{opacity:.85}
 .brand .logo{width:34px;height:34px;border-radius:10px}
 .lab{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
 aside select{width:100%}
@@ -190,7 +191,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 
 <div id="app" class="hidden">
   <aside>
-    <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M8 23V13M14 23V9M20 23v-7M26 23V11" stroke="#0a0d18" stroke-width="3.4" stroke-linecap="round"/></svg></div>영재학교 모의고사 관리</div>
+    <div class="brand" id="brandHome" title="첫 화면으로"><div class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M8 23V13M14 23V9M20 23v-7M26 23V11" stroke="#0a0d18" stroke-width="3.4" stroke-linecap="round"/></svg></div>영재학교 모의고사 관리</div>
     <div><div class="lab">학년도</div><select id="selYear"></select></div>
     <div><div class="lab">시험(차수)</div><div class="exlist" id="exList"></div></div>
     <button id="btnNew">+ 새 시험 만들기</button>
@@ -419,6 +420,13 @@ function renderSide() {
   $("#exList").innerHTML = list.length ? list.map((e) => `<button class="excard ${S.exam?.id === e.id ? "on" : ""}" data-id="${e.id}"><b>${e.round}차</b> <span class="muted" style="font-size:12px">${esc(e.date || "")}</span><div class="m">응시 ${e.n}명 · ${esc(e.title || "")}</div></button>`).join("")
     : `<div class="hint">이 학년도에 시험이 없습니다.<br>[+ 새 시험 만들기]로 추가하세요.</div>`;
 }
+// 로고 클릭 → 첫 화면 (선택한 시험 닫기)
+$("#brandHome").onclick = async () => {
+  if (!(await leaveOk())) return;
+  S.exam = null; S.backup = null; S.tab = "input"; setDirty(false);
+  try { sessionStorage.removeItem("mock_exam"); } catch { /* 무시 */ }
+  renderSide(); render();
+};
 $("#selYear").onchange = async () => { S.year = Number($("#selYear").value); renderSide(); };
 $("#exList").onclick = async (e) => { const b = e.target.closest(".excard"); if (b) await openExam(Number(b.dataset.id)); };
 async function leaveOk() {
