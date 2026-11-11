@@ -119,7 +119,7 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .seg button{border:none;border-radius:0;background:transparent;padding:9px 16px;color:var(--sub)}
 .seg button+button{border-left:1px solid var(--line2)}
 .seg button.on{background:var(--grad);color:#0a0d18;font-weight:700}
-table.v .sumM{background:rgba(139,124,255,.12)}table.v .sumS{background:rgba(69,212,200,.12)}table.v .sumT{background:rgba(74,222,128,.12)}
+
 table.v td.sumM.b0,table.v td.sumS.b0,table.v td.sumT.b0,table.v th.b0{border-left:2px solid var(--line2)}
 table.v td.big{font-weight:800;color:var(--text);font-size:13.5px}
 table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(--text)}
@@ -540,6 +540,7 @@ function visCols() {
   if (showS()) for (let i = 0; i < ns; i++) out.push(2 + nm + i);
   return out;
 }
+function autoKeys() { const c = S.exam.config; return [...(showM() ? [...c.math.areas.map((_, i) => "m" + i), "mt"] : []), ...(showS() ? [...c.sci.areas.map((_, i) => "s" + i), "st"] : []), "tot"]; }
 function autoSpan() { const c = S.exam.config; return (showM() ? c.math.areas.length + 1 : 0) + (showS() ? c.sci.areas.length + 1 : 0) + 1; }
 function viewInput(v) {
   const ex = S.exam, c = ex.config;
@@ -552,9 +553,9 @@ function viewInput(v) {
    <tr><th class="stk" style="left:0" rowspan="4">NO</th><th class="stk" style="left:38px" rowspan="4">이름</th><th class="stk" style="left:138px" rowspan="4">센터</th><th>문항</th>
      ${mi.map((it) => `<th class="m">${esc(it.no)}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.no)}</th>`).join("")}
      ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}${showM() ? `<th class="m">수학 계</th>` : ""}${sA.map((a) => `<th class="s">${esc(a)}</th>`).join("")}${showS() ? `<th class="s">과학 계</th>` : ""}<th>총계</th></tr>
-   <tr><th>영역</th>${mi.map((it) => `<th class="m">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.area.slice(0, 1))}</th>`).join("")}<th colspan="${span}">자동 계산</th></tr>
-   <tr><th>만점</th>${mi.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${si.map((it) => `<th>${fmax(it.max)}</th>`).join("")}<th colspan="${span}" id="maxRow"></th></tr>
-   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}"></th>`).join("")}<th colspan="${span}" id="avgRow"></th></tr></thead>`;
+   <tr><th>영역</th>${mi.map((it) => `<th class="m">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.area.slice(0, 1))}</th>`).join("")}${autoKeys().map(() => `<th></th>`).join("")}</tr>
+   <tr><th>만점</th>${mi.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${si.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${autoKeys().map((key) => `<th id="mx_${key}"></th>`).join("")}</tr>
+   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}"></th>`).join("")}${autoKeys().map((key) => `<th id="av_${key}"></th>`).join("")}</tr></thead>`;
   const body = ex.students.map((s, r) => rowHtml(s, r)).join("");
   v.innerHTML = `<div class="row noprint" style="margin-bottom:12px">
       <div class="kpis"><div class="kpi"><div class="k">입력 학생</div><div class="v" id="kN"></div></div><div class="kpi"><div class="k">센터</div><div class="v" id="kC"></div></div></div>
@@ -635,8 +636,10 @@ function refreshStats() {
   const ex = S.exam, k = calc(ex);
   k.itemAvg.m.forEach((a, i) => { const el = $("#am" + i); if (el) el.textContent = f1(a); });
   k.itemAvg.s.forEach((a, i) => { const el = $("#as" + i); if (el) el.textContent = f1(a); });
-  $("#maxRow").textContent = `만점  수학 ${fmax(k.max.mt)} (${k.mA.map((a, i) => a + " " + fmax(k.max.m[i])).join(" · ")})  /  과학 ${fmax(k.max.st)} (${k.sA.map((a, i) => a + " " + fmax(k.max.s[i])).join(" · ")})  /  총 ${fmax(k.max.tot)}`;
-  $("#avgRow").textContent = `평균  수학 ${f1(k.A.mt)}  /  과학 ${f1(k.A.st)}  /  총 ${f1(k.A.tot)}`;
+  const mxv = { mt: k.max.mt, st: k.max.st, tot: k.max.tot }, avv = { mt: k.A.mt, st: k.A.st, tot: k.A.tot };
+  k.mA.forEach((_, i) => { mxv["m" + i] = k.max.m[i]; avv["m" + i] = k.A.m[i]; });
+  k.sA.forEach((_, i) => { mxv["s" + i] = k.max.s[i]; avv["s" + i] = k.A.s[i]; });
+  autoKeys().forEach((key) => { const a = $("#mx_" + key), b = $("#av_" + key); if (a) a.textContent = fmax(mxv[key]); if (b) b.textContent = f1(avv[key]); });
   $("#kN").textContent = k.N + "명"; $("#kC").textContent = centersOf(ex).length + "곳";
 }
 function refreshAll() { S.exam.students.forEach((_, r) => refreshRow(r)); refreshDup(); refreshStats(); }
@@ -821,7 +824,7 @@ function viewTotal(v) {
        <th class="b0" colspan="6">합계</th></tr>
      <tr>${shown.map(([key, l]) => `<th colspan="3" class="${sumCls(key)} ${firstCls(key)}">${esc(l)}</th>`).join("")}</tr></thead>
    <tbody><tr style="color:var(--muted)"><td></td><td>만점/평균</td><td></td>${shown.map(([key, , mx]) => `<td class="${sumCls(key)} ${firstCls(key)}">${fmax(mx)}</td><td colspan="2" class="${sumCls(key)}">평균 ${f1(avgOf(key))}</td>`).join("")}</tr>
-   ${idx.map((i, n) => { const r = k.rows[i]; return `<tr><td>${n + 1}</td><td class="l">${esc(r.name)}</td><td>${esc(r.center)}</td>${shown.map(([key]) => { const col = k.cols[key], sc = sumCls(key); return `<td class="${sc} ${firstCls(key)} ${sc ? "big" : ""}">${f1(col.v[i])}</td><td class="muted ${sc}">${col.rk[i] ?? "미응시"}</td><td class="muted ${sc}">${fp(col.pct[i], "미응시")}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>`;
+   ${idx.map((i, n) => { const r = k.rows[i]; return `<tr><td>${n + 1}</td><td>${esc(r.name)}</td><td>${esc(r.center)}</td>${shown.map(([key]) => { const col = k.cols[key], sc = sumCls(key); return `<td class="${sc} ${firstCls(key)} ${sc ? "big" : ""}">${f1(col.v[i])}</td><td class="muted ${sc}">${col.rk[i] ?? "미응시"}</td><td class="muted ${sc}">${fp(col.pct[i], "미응시")}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>`;
   v.querySelectorAll("th.fold").forEach((th) => (th.onclick = () => { if (th.dataset.g === "m") { S.foldM = !S.foldM; setPref("foldM", S.foldM ? "1" : "0"); } else { S.foldS = !S.foldS; setPref("foldS", S.foldS ? "1" : "0"); } viewTotal(v); }));
   $("#foldAll").onclick = () => { const f = !(S.foldM || S.foldS); S.foldM = S.foldS = f; setPref("foldM", f ? "1" : "0"); setPref("foldS", f ? "1" : "0"); viewTotal(v); };
   $("#fCenter").onchange = (e) => { S.center = e.target.value; viewTotal(v); };
@@ -846,7 +849,7 @@ function viewRank(v) {
   v.innerHTML = `<div class="row" style="margin-bottom:12px"><span class="sub">기준</span><select id="rBy">${Object.entries(by).map(([key, l]) => `<option value="${key}" ${key === S.rankBy ? "selected" : ""}>${l}</option>`).join("")}</select>
       ${centerFilter(ex)}<span class="hint">미응시 학생은 제외됩니다. 순위는 전체 기준입니다.</span><div class="grow"></div><button class="small" id="xls">엑셀로 저장</button></div>
     <div class="tw"><table class="v"><thead><tr><th>기준 순위</th><th>이름</th><th>센터</th><th colspan="3">수학 (점수·순위·백분위)</th><th colspan="3">과학</th><th colspan="3">총점</th><th colspan="3">환산 점수</th></tr></thead>
-    <tbody>${idx.map((i) => `<tr><td><b>${col.rk[i]}</b></td><td class="l">${esc(k.rows[i].name)}</td><td>${esc(k.rows[i].center)}</td>${c3("mt", i)}${c3("st", i)}${c3("tot", i)}${c3("conv", i)}</tr>`).join("")}</tbody></table></div>`;
+    <tbody>${idx.map((i) => `<tr><td><b>${col.rk[i]}</b></td><td>${esc(k.rows[i].name)}</td><td>${esc(k.rows[i].center)}</td>${c3("mt", i)}${c3("st", i)}${c3("tot", i)}${c3("conv", i)}</tr>`).join("")}</tbody></table></div>`;
   $("#rBy").onchange = (e) => { S.rankBy = e.target.value; viewRank(v); };
   $("#fCenter").onchange = (e) => { S.center = e.target.value; viewRank(v); };
   $("#xls").onclick = async () => {
