@@ -121,10 +121,14 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 .kpi{padding:10px 14px;border-radius:12px;background:var(--glass2);border:1px solid var(--line);min-width:110px}
 .kpi .k{font-size:11.5px;color:var(--muted)}.kpi .v{font-size:18px;font-weight:800;margin-top:2px}
 
-/* 성적표 (A4, 흰 배경, 시스템 글꼴) — 와이즈만 브랜드 */
+/* 성적표 (A4) — 글꼴: Pretendard(생기부 성적표와 같은 글꼴). PDF용으로 4가지 굵기만 따로 등록 */
+@font-face{font-family:"WZP";font-weight:400;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Regular.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:600;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:700;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-Bold.woff2) format("woff2")}
+@font-face{font-family:"WZP";font-weight:800;font-display:swap;src:url(https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-ExtraBold.woff2) format("woff2")}
 .rpwrap{display:flex;justify-content:center;padding:10px 0 40px;overflow:auto}
 .rp{--wr:#047857;--wr2:#0891b2;--wg:#10b981;--ink:#0f172a;--sub2:#64748b;--ln:#e2e8f0;--pale:#f8fafc;
-  width:794px;height:1123px;background:#fff;color:var(--ink);padding:36px 44px 30px;display:flex;flex-direction:column;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:12px;letter-spacing:-.02em;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative;overflow:hidden}
+  width:794px;height:1123px;background:#fff;color:var(--ink);padding:36px 44px 30px;display:flex;flex-direction:column;font-family:"WZP","Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:12px;letter-spacing:-.02em;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative;overflow:hidden}
 .rp::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:linear-gradient(180deg,var(--wr),var(--wr2))}
 .rp .hd{display:flex;align-items:center;gap:18px;padding-bottom:12px;border-bottom:3px solid var(--wr);position:relative}
 .rp .hd::after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:1px;background:var(--wg)}
@@ -134,10 +138,10 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 .rp .t2{font-size:22px;font-weight:800;color:var(--ink);margin-top:2px;letter-spacing:-.03em}
 .rp .t2 b{color:var(--wr)}
 .rp .who{display:flex;gap:10px;margin:22px 0 0;align-items:stretch}
-.rp .who .id{flex:0 0 210px;border:1px solid var(--ln);border-radius:10px;padding:10px 14px;background:var(--pale)}
+.rp .who .id{flex:0 0 210px;border:1px solid var(--ln);border-radius:10px;padding:10px 14px;background:var(--pale);display:flex;flex-direction:column;justify-content:center}
 .rp .who .id .k{font-size:10.5px;color:var(--sub2)}.rp .who .id .v{font-size:17px;font-weight:800;margin-top:1px}
 .rp .who .id .c{font-size:11.5px;color:var(--sub2);margin-top:3px}
-.rp .kp{flex:1;border:1px solid var(--ln);border-radius:10px;padding:10px 12px;text-align:center}
+.rp .kp{flex:1;border:1px solid var(--ln);border-radius:10px;padding:10px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center}
 .rp .kp .k{font-size:10.5px;color:var(--sub2)}.rp .kp .v{font-size:19px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
 .rp .kp .v small{font-size:11px;color:var(--sub2);font-weight:600;margin-left:2px}
 .rp .kp.hl{background:linear-gradient(135deg,var(--wr),var(--wr2));border-color:var(--wr2);color:#fff}
@@ -898,6 +902,7 @@ function reportHtml(ex, k, i) {
   </div>`;
 }
 function drawChart(el, k, i) {
+  Chart.defaults.font.family = '"WZP","Pretendard","Malgun Gothic",sans-serif';
   const r = k.rows[i];
   const cv = el.querySelector("canvas");
   const box = cv.parentElement; // 남은 공간을 그래프가 채우도록 크기 맞춤
@@ -914,7 +919,7 @@ function drawChart(el, k, i) {
       scales: { x: { ticks: { color: "#0f172a", font: { size: 12, weight: "bold" } }, grid: { display: false }, border: { color: "#e2e8f0" } },
         y: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#f1f5f9" }, border: { display: false } } } },
     plugins: [{ id: "vals", afterDatasetsDraw(ch) { const g = ch.ctx; g.save(); g.textAlign = "center";
-      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => { g.font = (di === 2 ? "bold " : "") + "10.5px Malgun Gothic, sans-serif"; g.fillStyle = di === 2 ? "#047857" : "#64748b"; g.fillText(d.data[j].toFixed(1), b.x, b.y - 9); })); g.restore(); } }],
+      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => { g.font = (di === 2 ? "bold " : "") + "10.5px WZP, Pretendard, Malgun Gothic, sans-serif"; g.fillStyle = di === 2 ? "#047857" : "#64748b"; g.fillText(d.data[j].toFixed(1), b.x, b.y - 9); })); g.restore(); } }],
   });
 }
 function viewReport(v) {
@@ -931,7 +936,8 @@ function viewReport(v) {
       <div class="grow"></div>
       <button id="prt">인쇄</button><button class="orange" id="pdf1">PDF로 저장</button><button class="primary" id="zip">일괄 PDF (ZIP)</button></div>
     <div class="rpwrap" id="rpw">${reportHtml(ex, k, S.stu)}</div>`;
-  drawChart($("#rpw"), k, S.stu);
+  const ch = drawChart($("#rpw"), k, S.stu);
+  Promise.all([400, 700, 800].map((w) => document.fonts.load(`${w} 12px "WZP"`))).then(() => { try { ch.update(); } catch { /* 화면 이동 시 무시 */ } });
   const go = (i) => { S.stu = i; viewReport(v); };
   $("#stuS").onchange = (e) => go(Number(e.target.value));
   $("#stuQ").onchange = (e) => {
@@ -950,13 +956,31 @@ function viewReport(v) {
   $("#zip").onclick = () => zipAll(ex, k, idx);
 }
 const pdfName = (ex, r) => safeName(`${ex.config.title} [${ex.round}차] 결과표 [${r.center}] ${r.name}.pdf`);
+// PDF에 Pretendard를 넣기 위한 글꼴 정보 (한 번만 만들어 재사용, 실패하면 시스템 글꼴)
+let FONT_CSS = null;
+async function fontOpt() {
+  if (FONT_CSS === null) {
+    try {
+      const rules = [];
+      for (const w of [["Regular", 400], ["SemiBold", 600], ["Bold", 700], ["ExtraBold", 800]]) {
+        const b = await fetch(`https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/woff2/Pretendard-${w[0]}.woff2`).then((r) => { if (!r.ok) throw 0; return r.blob(); });
+        const url = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
+        rules.push(`@font-face{font-family:"WZP";font-weight:${w[1]};src:url(${url}) format("woff2")}`);
+      }
+      FONT_CSS = rules.join("\n");
+      await document.fonts.load('700 12px "WZP"');
+    } catch { FONT_CSS = ""; }
+  }
+  return FONT_CSS ? { fontEmbedCSS: FONT_CSS } : { skipFonts: true };
+}
 async function pdfOf(ex, k, i) {
   await needPDF();
+  await fontOpt();
   const st = $("#rpStage"); st.innerHTML = reportHtml(ex, k, i);
   const ch = drawChart(st, k, i);
   try {
     const node = st.firstElementChild;
-    const canvas = await htmlToImage.toCanvas(node, { pixelRatio: 2, backgroundColor: "#ffffff", skipFonts: true, width: 794, height: 1123 });
+    const canvas = await htmlToImage.toCanvas(node, { pixelRatio: 2, backgroundColor: "#ffffff", width: 794, height: 1123, ...(await fontOpt()) });
     const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
     return pdf.output("blob");
