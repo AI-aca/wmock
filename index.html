@@ -123,6 +123,12 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
 .qtbl{table-layout:fixed;width:auto}.qtbl input.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .warnTxt{color:#fbbf24;font-weight:600}
+.convbox{margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(94,234,212,.5);background:linear-gradient(135deg,rgba(94,234,212,.12),rgba(99,102,241,.10))}
+.convbox.warn{border-color:rgba(251,191,36,.6);background:rgba(251,191,36,.10);color:#fbbf24;font-weight:600;font-size:14px}
+.convbox .cap{font-size:12.5px;font-weight:700;color:#5eead4;margin-bottom:8px}
+.convbox .cvs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.convbox .cv{background:rgba(8,11,20,.45);border-radius:10px;padding:8px 10px;text-align:center}
+.convbox .cv .l{font-size:12px;color:var(--sub)}.convbox .cv .v{font-size:22px;font-weight:800;color:#fff;margin:2px 0}.convbox .cv .s{font-size:11px;color:var(--muted)}
 .innote{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,auto) minmax(0,auto);justify-content:end;column-gap:22px;row-gap:3px;font-size:12px;color:var(--sub);line-height:1.5;min-width:0;margin-left:auto}
 .innote~*,.kpis:has(+.seg),.kpis+.seg{flex-shrink:0}.innote span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.innote i.bl{font-style:normal;background:rgba(59,130,246,.35);padding:0 4px;border-radius:4px}
 
@@ -826,7 +832,7 @@ function viewConfig(v) {
         <span class="sub">과학 환산 비율</span><input id="cKs" value="${esc(c.conv.sci)}">
       </div>
       <div class="row" style="margin-top:10px"><button class="small" id="convCalc">환산 비율로 만점 계산</button></div>
-      <div id="convOut" class="hint" style="margin-top:6px"></div>
+      <div id="convOut"></div>
       <p class="hint" style="margin-top:8px">환산 비율은 1.2, 2/3처럼 입력합니다. 성적표 제목: [ ${ex.year}학년도 영재학교 대비 ] ${esc(c.title)} [${ex.round}차] 결과표</p>
       <div style="margin-top:12px"><div class="lab">메모</div><textarea id="cM" rows="2">${esc(c.memo)}</textarea></div>
     </div>
@@ -869,10 +875,14 @@ function viewConfig(v) {
     const t = e.target.closest("button"); if (!t) return;
     if (t.id === "convCalc") {
       const k = calc(ex), o = $("#convOut");
-      if (!(k.max.mt > 0) && !(k.max.st > 0)) { o.innerHTML = `<span class="warnTxt">⚠️ 문항 배점이 없습니다. 아래 수학·과학 문항 정보부터 입력하세요.</span>`; return; }
-      o.innerHTML = `현재 입력된 문항 기준 → 수학 환산 만점 <b>${fmax(k.max.cm)}</b> (원점수 ${fmax(k.max.mt)}) · 과학 환산 만점 <b>${fmax(k.max.cs)}</b> (원점수 ${fmax(k.max.st)}) · 환산 총점 만점 <b>${fmax(k.max.ct)}</b>`
-        + (!(k.max.mt > 0) ? `<br><span class="warnTxt">⚠️ 수학 문항 배점이 없습니다. 아래 수학 문항 정보부터 입력하세요.</span>` : "")
-        + (!(k.max.st > 0) ? `<br><span class="warnTxt">⚠️ 과학 문항 배점이 없습니다. 아래 과학 문항 정보부터 입력하세요.</span>` : "");
+      if (!(k.max.mt > 0) && !(k.max.st > 0)) { o.innerHTML = `<div class="convbox warn">⚠️ 문항 배점이 없습니다. 아래 수학·과학 문항 정보부터 입력하세요.</div>`; return; }
+      const cell = (l, v, sub) => `<div class="cv"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+      o.innerHTML = `<div class="convbox"><div class="cap">현재 입력된 문항 기준 환산 만점</div><div class="cvs">
+          ${cell("수학 환산 만점", fmax(k.max.cm), `원점수 ${fmax(k.max.mt)} × ${esc(c.conv.math)}`)}
+          ${cell("과학 환산 만점", fmax(k.max.cs), `원점수 ${fmax(k.max.st)} × ${esc(c.conv.sci)}`)}
+          ${cell("환산 총점 만점", fmax(k.max.ct), "수학 + 과학")}</div>
+          ${!(k.max.mt > 0) ? `<div class="warnTxt" style="margin-top:8px">⚠️ 수학 문항 배점이 없습니다. 아래 수학 문항 정보부터 입력하세요.</div>` : ""}
+          ${!(k.max.st > 0) ? `<div class="warnTxt" style="margin-top:8px">⚠️ 과학 문항 배점이 없습니다. 아래 과학 문항 정보부터 입력하세요.</div>` : ""}</div>`;
       return;
     }
     if (t.id === "cutAdd") { c.cutoffs.push({ name: "", math: null, sci: null }); ch(); viewConfig(v); }
