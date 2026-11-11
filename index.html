@@ -60,6 +60,8 @@ aside>*{flex-shrink:0}aside>.exwrap{flex:0 1 auto;min-height:90px;display:flex;f
 .lab{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
 aside select{width:100%}
 .exlist{display:flex;flex-direction:column;gap:6px}
+.exlist.off .excard{opacity:.35;cursor:not-allowed;pointer-events:none}
+.trnote{font-size:12.5px;line-height:1.55;color:#a7f3d0;background:rgba(94,234,212,.08);border:1px solid rgba(94,234,212,.35);border-radius:10px;padding:8px 10px;margin-bottom:2px}
 .excard{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--glass);cursor:pointer;text-align:left;width:100%}
 .excard b{font-size:14px}.excard .m{font-size:12px;color:var(--muted);margin-top:2px}
 .excard.on{border-color:var(--a1);background:rgba(139,124,255,.12)}
@@ -255,6 +257,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
         <button class="tab" data-t="total">종합성적</button>
         <button class="tab" data-t="rank">순위별 정리</button>
         <button class="tab" data-t="report">성적표 출력</button>
+        <span class="sep"></span>
         <button class="tab" data-t="trend">학생별 성적 추이</button>
         <span class="sep"></span>
         <button class="tab" data-t="manage">시험 목록·가져오기</button>
@@ -463,9 +466,11 @@ async function loadList() {
   renderSide();
 }
 function renderSide() {
-  const list = S.exams.filter((e) => e.year === S.year).sort((a, b) => a.round - b.round);
-  $("#exList").innerHTML = list.length ? list.map((e) => `<button class="excard ${S.exam?.id === e.id ? "on" : ""}" data-id="${e.id}"><b>${e.round}차</b><div class="m">응시 ${e.n}명 · ${esc(e.title || "")}</div></button>`).join("")
-    : `<div class="hint">이 학년도에 시험이 없습니다.<br>[+ 새 시험 만들기]로 추가하세요.</div>`;
+  const list = (S.exams || []).filter((e) => e.year === S.year).sort((a, b) => a.round - b.round);
+  const tr = S.tab === "trend";
+  $("#exList").classList.toggle("off", tr);
+  $("#exList").innerHTML = (tr && list.length ? `<div class="trnote">학생별 성적 추이는 ${S.year}학년도 전체 차수를 함께 봅니다. 차수를 고를 필요가 없습니다.</div>` : "") + (list.length ? list.map((e) => `<button class="excard ${!tr && S.exam?.id === e.id ? "on" : ""}" data-id="${e.id}" ${tr ? "disabled" : ""}><b>${e.round}차</b><div class="m">응시 ${e.n}명 · ${esc(e.title || "")}</div></button>`).join("")
+    : `<div class="hint">이 학년도에 시험이 없습니다.<br>[+ 새 시험 만들기]로 추가하세요.</div>`);
 }
 // 로고 클릭 → 첫 화면 (선택한 시험 닫기)
 $("#brandHome").onclick = async () => {
@@ -475,7 +480,7 @@ $("#brandHome").onclick = async () => {
   renderSide(); render();
 };
 $("#selYear").onchange = async () => { S.year = Number($("#selYear").value); renderSide(); if (S.tab === "trend") render(); };
-$("#exList").onclick = async (e) => { const b = e.target.closest(".excard"); if (b) await openExam(Number(b.dataset.id)); };
+$("#exList").onclick = async (e) => { if (S.tab === "trend") return; const b = e.target.closest(".excard"); if (b) await openExam(Number(b.dataset.id)); };
 async function leaveOk() {
   if (!S.dirty) return true;
   return await confirmBox("저장하지 않은 변경이 있습니다.\n저장하지 않고 이동할까요?", "저장하지 않고 이동");
@@ -583,7 +588,8 @@ $("#btnGuide").onclick = () => {
       "저장하지 않은 변경이 있으면 먼저 저장한 뒤 출력하세요."])}
     ${sec("6-1. 학생별 성적 추이", [
       "왼쪽에서 고른 <b>학년도</b>의 모든 차수를 모아, 학생 한 명의 수학·과학·총점·환산 점수와 석차·백분위를 차수별 표와 그래프로 봅니다.",
-      "<b>센터</b>와 <b>학생</b>을 고르고 ◀ ▶로 넘깁니다. 이름과 센터가 같은 학생을 같은 학생으로 묶으니, 차수마다 이름·센터를 똑같이 입력해 주세요.",
+      "<b>학생 이름 검색</b>(전체 센터)에 이름을 치거나, <b>센터</b>와 <b>학생</b>을 고르고 ◀ ▶로 넘깁니다. 이 탭에서는 왼쪽 차수를 고르지 않습니다(학년도 전체).",
+      "이름과 센터가 같은 학생을 같은 학생으로 묶으니, 차수마다 이름·센터를 똑같이 입력해 주세요.",
       "석차·백분위 그래프는 위쪽일수록 좋은 성적입니다."])}
     ${sec("7. 시험 목록·가져오기", [
       "모든 시험과 최근 수정 시각·수정자를 봅니다. [열기]로 바로 엽니다.",
@@ -635,9 +641,10 @@ $("#tabs").onclick = (e) => { const b = e.target.closest(".tab"); if (b) { S.tab
 function render() {
   $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.t === S.tab));
   const ex = S.exam;
-  const et = $("#exTitle"); et.classList.toggle("on", !!ex);
-  et.innerHTML = ex ? `<i class="ed"></i><span class="ey">${ex.year}학년도</span><span class="er">${ex.round}차</span>` : "시험을 선택하세요";
-  $("#btnSave").classList.toggle("hidden", !ex);
+  const et = $("#exTitle"), tr = S.tab === "trend"; et.classList.toggle("on", !!ex || tr);
+  et.innerHTML = tr ? `<i class="ed"></i><span class="ey">${S.year}학년도</span><span class="er">전체</span>` : ex ? `<i class="ed"></i><span class="ey">${ex.year}학년도</span><span class="er">${ex.round}차</span>` : "시험을 선택하세요";
+  $("#btnSave").classList.toggle("hidden", !ex || tr);
+  renderSide();
   const v = $("#view");
   if (S.tab === "manage") return viewManage(v);
   if (S.tab === "users") return viewUsers(v);
@@ -1087,8 +1094,10 @@ async function viewTrend(v) {
   const rows = data.map((d) => { const i = d.k.rows.findIndex((r) => keyOf(r) === key); return i < 0 ? null : { round: d.round, k: d.k, i }; }).filter(Boolean);
   const G = [["conv", "환산 점수", (k) => k.max.ct], ["tot", "총점", (k) => k.max.tot], ["mt", "수학", (k) => k.max.mt], ["st", "과학", (k) => k.max.st]];
   const cell = (r, g) => { const c = r.k.cols[g]; return c.v[r.i] == null ? `<td class="b0 muted">미응시</td><td class="muted">-</td><td class="muted">-</td>` : `<td class="b0 big">${f1(c.v[r.i])}</td><td>${c.rk[r.i]} <span class="muted">/ ${r.k.N}</span></td><td>${fp(c.pct[r.i])}</td>`; };
+  const all = [...people.values()].sort((a, b) => a.name.localeCompare(b.name, "ko") || a.center.localeCompare(b.center, "ko"));
   v.innerHTML = `<div class="row" style="margin-bottom:12px">
-      <span class="sub">센터</span><select id="trC">${centers.map((c) => `<option ${c === S.trC ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <input id="trQ" list="trL" placeholder="학생 이름 검색 (전체 센터)" style="width:210px"><datalist id="trL">${all.map((p) => `<option value="${esc(p.name)} (${esc(p.center)})">`).join("")}</datalist>
+      <span class="sub" style="margin-left:6px">센터</span><select id="trC">${centers.map((c) => `<option ${c === S.trC ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
       <span class="sub" style="margin-left:6px">학생</span><select id="trN" style="min-width:140px">${names.map((p) => `<option ${p.name === S.trN ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
       <button class="small" id="trPrev">◀</button><button class="small" id="trNext">▶</button>
       <span class="hint">${year}학년도 시험 ${data.length}개에서 이름·센터가 같은 학생을 묶어 보여 줍니다. 석차·백분위는 그 시험 전체(전 센터) 기준입니다.</span></div>
@@ -1098,8 +1107,16 @@ async function viewTrend(v) {
       <tbody>${rows.length ? rows.map((r) => `<tr><td><b>${r.round}차</b></td>${G.map(([g]) => cell(r, g)).join("")}</tr>`).join("") : `<tr><td colspan="13" class="muted">응시 기록이 없습니다.</td></tr>`}</tbody></table></div>
     <div class="trgrid">${G.map(([g, l]) => ["점수", "석차", "백분위"].map((t) => `<div class="card trc"><div class="trt">${l} ${t} 추이</div><div class="trbox"><canvas data-g="${g}" data-t="${t}"></canvas></div></div>`).join("")).join("")}</div>`;
   $("#trC").onchange = (e) => { S.trC = e.target.value; S.trN = null; viewTrend(v); };
+  $("#trQ").onchange = (e) => {
+    const q = e.target.value.trim(); if (!q) return;
+    const m = q.match(/^(.*?) \((.*)\)$/);
+    const hit = m ? all.filter((p) => p.name === m[1] && p.center === m[2]) : all.filter((p) => p.name === q);
+    if (hit.length === 1) { S.trC = hit[0].center; S.trN = hit[0].name; viewTrend(v); }
+    else if (hit.length > 1) toast(`${q} 학생이 ${hit.length}명입니다(${hit.map((p) => p.center).join(", ")}). 목록에서 센터까지 골라 주세요.`, 4000);
+    else toast("해당 이름의 학생이 없습니다.");
+  };
   $("#trN").onchange = (e) => { S.trN = e.target.value; viewTrend(v); };
-  const step = (d) => { const j = names.findIndex((p) => p.name === S.trN) + d; if (names[j]) { S.trN = names[j].name; viewTrend(v); } };
+  const step = (d) => { const j = names.findIndex((p) => p.name === S.trN) + d; if (names[j]) { S.trN = names[j].name; viewTrend(v); } else toast(d < 0 ? `${S.trC} 센터의 첫 번째 학생입니다.` : `${S.trC} 센터의 마지막 학생입니다.`); };
   $("#trPrev").onclick = () => step(-1); $("#trNext").onclick = () => step(1);
   if (!rows.length || !window.Chart) return;
   Chart.defaults.font.family = '"WZP","Pretendard","Malgun Gothic",sans-serif';
@@ -1249,8 +1266,8 @@ function viewReport(v) {
     const i = idx.find((j) => (m ? k.rows[j].name === m[1] && k.rows[j].center === m[2] : k.rows[j].name === q));
     if (i != null) go(i); else toast("해당 이름의 학생이 없습니다.");
   };
-  $("#prev").onclick = () => { const p = idx.indexOf(S.stu); if (p > 0) go(idx[p - 1]); };
-  $("#next").onclick = () => { const p = idx.indexOf(S.stu); if (p < idx.length - 1) go(idx[p + 1]); };
+  $("#prev").onclick = () => { const p = idx.indexOf(S.stu); if (p > 0) go(idx[p - 1]); else toast("첫 번째 학생입니다."); };
+  $("#next").onclick = () => { const p = idx.indexOf(S.stu); if (p < idx.length - 1) go(idx[p + 1]); else toast("마지막 학생입니다."); };
   $("#fCenter").onchange = (e) => { S.center = e.target.value; S.stu = -1; viewReport(v); };
   $("#prt").onclick = () => window.print();
   $("#pdf1").onclick = async () => {
