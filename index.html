@@ -72,7 +72,10 @@ header{display:flex;align-items:center;gap:6px;padding:12px 20px;border-bottom:1
 .tab[data-t="users"]{color:#f9a8d4}.tab[data-t="users"].on{color:#f9a8d4;box-shadow:inset 0 0 0 1px rgba(249,168,212,.5)}
 .tab[data-t="config"]{color:var(--gold)}.tab[data-t="config"].on{color:var(--gold);box-shadow:inset 0 0 0 1px rgba(230,194,122,.5)}
 .sep{width:1px;height:22px;background:var(--line2);margin:0 6px}
-.extitle{font-weight:800;font-size:15px;margin-right:12px}
+.extitle{font-weight:800;font-size:15px;margin-right:12px;color:var(--sub)}
+.extitle.on{display:inline-flex;align-items:baseline;gap:8px;padding:6px 14px 6px 12px;border-radius:12px;border:1px solid rgba(94,234,212,.5);background:linear-gradient(135deg,rgba(94,234,212,.14),rgba(99,102,241,.12));box-shadow:0 0 0 3px rgba(94,234,212,.06),0 6px 18px rgba(0,0,0,.25);color:var(--text)}
+.extitle .ey{font-size:13px;font-weight:600;color:#a7f3d0;letter-spacing:-.01em}.extitle .er{font-size:19px;font-weight:800;color:#fff;letter-spacing:-.02em}
+.extitle .ed{width:8px;height:8px;border-radius:50%;background:#5eead4;box-shadow:0 0 8px #5eead4;align-self:center}
 .content{padding:20px;min-width:0}
 .card{border:1px solid var(--line);background:var(--glass);border-radius:var(--r);padding:18px}
 .card h3{font-size:15px;margin-bottom:12px}
@@ -617,7 +620,8 @@ $("#tabs").onclick = (e) => { const b = e.target.closest(".tab"); if (b) { S.tab
 function render() {
   $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.t === S.tab));
   const ex = S.exam;
-  $("#exTitle").textContent = ex ? `${ex.year}학년도 ${ex.round}차` : "시험을 선택하세요";
+  const et = $("#exTitle"); et.classList.toggle("on", !!ex);
+  et.innerHTML = ex ? `<i class="ed"></i><span class="ey">${ex.year}학년도</span><span class="er">${ex.round}차</span>` : "시험을 선택하세요";
   $("#btnSave").classList.toggle("hidden", !ex);
   const v = $("#view");
   if (S.tab === "manage") return viewManage(v);
