@@ -71,7 +71,9 @@ header{display:flex;align-items:center;gap:6px;padding:12px 20px;border-bottom:1
 .content{padding:20px;min-width:0}
 .card{border:1px solid var(--line);background:var(--glass);border-radius:var(--r);padding:18px}
 .card h3{font-size:15px;margin-bottom:12px}
-.empty{padding:60px 20px;text-align:center;color:var(--sub);line-height:1.8}
+.empty{padding:60px 20px;text-align:center;color:var(--sub);line-height:1.8;font-size:16px}
+.empty.warn::before{content:"⚠️";display:block;font-size:34px;margin-bottom:10px}
+.empty.warn{color:var(--text)}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1b2236;border:1px solid var(--line2);padding:11px 18px;border-radius:12px;z-index:300;box-shadow:0 20px 50px rgba(0,0,0,.5)}
 .dirty{position:fixed;right:20px;bottom:20px;z-index:150;background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.6);color:#fdba74;padding:10px 14px;border-radius:12px;display:flex;gap:10px;align-items:center}
 .busy{position:fixed;inset:0;z-index:250;background:rgba(4,6,12,.6);display:flex;align-items:center;justify-content:center}
@@ -198,12 +200,12 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
     <header>
       <span class="extitle" id="exTitle">시험을 선택하세요</span>
       <div class="tabs" id="tabs">
+        <button class="tab" data-t="config">시험 설정</button>
+        <span class="sep"></span>
         <button class="tab" data-t="input">성적 입력</button>
         <button class="tab" data-t="total">종합성적</button>
         <button class="tab" data-t="rank">순위별 정리</button>
         <button class="tab" data-t="report">성적표 출력</button>
-        <span class="sep"></span>
-        <button class="tab" data-t="config">시험 설정</button>
         <span class="sep"></span>
         <button class="tab" data-t="manage">시험 목록·가져오기</button>
         <button class="tab hidden" data-t="users" id="tabUsers">사용자 승인</button>
@@ -533,7 +535,7 @@ function visCols() {
 function autoSpan() { const c = S.exam.config; return (showM() ? c.math.areas.length + 1 : 0) + (showS() ? c.sci.areas.length + 1 : 0) + 1; }
 function viewInput(v) {
   const ex = S.exam, c = ex.config;
-  if (!c.math.items.length && !c.sci.items.length) { v.innerHTML = `<div class="empty">문항 구성이 없습니다. [시험 설정]에서 문항번호·영역·배점을 먼저 입력하세요.</div>`; return; }
+  if (!c.math.items.length && !c.sci.items.length) { v.innerHTML = `<div class="empty warn">문항 구성이 없습니다. [시험 설정]에서 문항번호·영역·배점을 먼저 입력하세요.</div>`; return; }
   const mi = showM() ? c.math.items : [], si = showS() ? c.sci.items : [];
   while (ex.students.length < 1 || ex.students[ex.students.length - 1].name) ex.students.push(blankStu());
   const mA = showM() ? c.math.areas : [], sA = showS() ? c.sci.areas : [];
@@ -794,7 +796,7 @@ function centerFilter(ex) {
 }
 function viewTotal(v) {
   const ex = S.exam, k = calc(ex);
-  if (!k.N) { v.innerHTML = `<div class="empty">입력된 학생이 없습니다.</div>`; return; }
+  if (!k.N) { v.innerHTML = `<div class="empty warn">입력된 학생이 없습니다.</div>`; return; }
   const keys = [...k.mA.map((a, i) => ["m" + i, a, k.max.m[i]]), ["mt", "수학 계", k.max.mt], ...k.sA.map((a, i) => ["s" + i, a, k.max.s[i]]), ["st", "과학 계", k.max.st], ["tot", "총점", k.max.tot], ["conv", "환산 점수", k.max.ct]];
   const avgOf = (key) => (key === "mt" ? k.A.mt : key === "st" ? k.A.st : key === "tot" ? k.A.tot : key === "conv" ? k.A.ct : k.cols[key].avg);
   const idx = k.rows.map((_, i) => i).filter((i) => !S.center || k.rows[i].center === S.center);
@@ -829,7 +831,7 @@ function viewTotal(v) {
 // ---------- 순위별 정리 ----------
 function viewRank(v) {
   const ex = S.exam, k = calc(ex);
-  if (!k.N) { v.innerHTML = `<div class="empty">입력된 학생이 없습니다.</div>`; return; }
+  if (!k.N) { v.innerHTML = `<div class="empty warn">입력된 학생이 없습니다.</div>`; return; }
   const by = { mt: "수학 석차", st: "과학 석차", tot: "총점(종합) 석차", conv: "환산 석차" };
   const col = k.cols[S.rankBy];
   const idx = k.rows.map((_, i) => i).filter((i) => col.rk[i] != null && (!S.center || k.rows[i].center === S.center))
@@ -924,7 +926,7 @@ function drawChart(el, k, i) {
 }
 function viewReport(v) {
   const ex = S.exam, k = calc(ex);
-  if (!k.N) { v.innerHTML = `<div class="empty">입력된 학생이 없습니다.</div>`; return; }
+  if (!k.N) { v.innerHTML = `<div class="empty warn">입력된 학생이 없습니다.</div>`; return; }
   if (S.stu >= k.N) S.stu = -1;
   const idx = k.rows.map((_, i) => i).filter((i) => !S.center || k.rows[i].center === S.center);
   if (S.stu < 0 || !idx.includes(S.stu)) S.stu = idx[0] ?? 0;
@@ -1007,10 +1009,10 @@ async function zipAll(ex, k, idx) {
 
 // ---------- 사용자 승인 (관리자) ----------
 async function viewUsers(v) {
-  if (S.user?.role !== "admin") { v.innerHTML = `<div class="empty">관리자만 볼 수 있습니다.</div>`; return; }
+  if (S.user?.role !== "admin") { v.innerHTML = `<div class="empty warn">관리자만 볼 수 있습니다.</div>`; return; }
   v.innerHTML = `<div class="empty">불러오는 중…</div>`;
   let users = [];
-  try { users = (await api("userList")).users; } catch (e) { v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  try { users = (await api("userList")).users; } catch (e) { v.innerHTML = `<div class="empty warn">${esc(e.message)}</div>`; return; }
   const st = { approved: ["승인", "var(--ok)"], pending: ["승인 대기", "var(--warn)"], blocked: ["차단", "var(--bad)"] };
   const dt = (x) => (x ? new Date(x).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "-");
   const pend = users.filter((u) => u.status === "pending").length;
