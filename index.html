@@ -125,6 +125,11 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .itemtbl input,.itemtbl select{width:100%;padding:5px 7px}
 .qtbl{table-layout:fixed;width:auto}.qtbl input.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .warnTxt{color:#fbbf24;font-weight:600}
+.combo{position:relative;display:inline-block}
+.combolist{position:absolute;left:0;top:calc(100% + 4px);min-width:100%;width:max-content;max-width:320px;max-height:min(360px,60vh);overflow-y:auto;z-index:50;background:#141a2b;border:1px solid var(--line2);border-radius:10px;padding:4px;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.combolist .ci{padding:6px 10px;border-radius:7px;font-size:13.5px;cursor:pointer;white-space:nowrap}
+.combolist .ci:hover,.combolist .ci.on{background:#2563eb;color:#fff}.combolist .ce{padding:8px 10px;font-size:13px;color:var(--muted)}
+select option{background:#141a2b;color:#e2e8f0}
 .trgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:1200px){.trgrid{grid-template-columns:1fr 1fr}}
 .trc{padding:14px 14px 10px}.trt{font-size:14px;font-weight:700;margin-bottom:6px}.trbox{height:210px;position:relative}
@@ -1057,6 +1062,30 @@ function viewRank(v) {
   };
 }
 
+// 이름 검색 상자: 브라우저 기본 목록 대신 화면 안에 맞춘 어두운 목록 (입력한 글자가 들어간 이름만)
+function attachCombo(inp, labels) {
+  const box = document.createElement("div"); box.className = "combolist hidden"; inp.parentElement.appendChild(box);
+  let cur = -1, shown = [];
+  const pick = (t) => { inp.value = t; box.classList.add("hidden"); inp.onchange?.({ target: inp }); };
+  const draw = () => {
+    const q = inp.value.trim();
+    shown = (q ? labels.filter((l) => l.includes(q)) : labels).slice(0, 300); cur = -1;
+    box.innerHTML = shown.length ? shown.map((l, n) => `<div class="ci" data-n="${n}">${esc(l)}</div>`).join("") : `<div class="ce">일치하는 학생이 없습니다.</div>`;
+    box.classList.remove("hidden");
+  };
+  const mark = () => $$(".ci", box).forEach((d, n) => { d.classList.toggle("on", n === cur); if (n === cur) d.scrollIntoView({ block: "nearest" }); });
+  inp.addEventListener("focus", draw); inp.addEventListener("input", draw);
+  inp.addEventListener("keydown", (e) => {
+    if (box.classList.contains("hidden")) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); cur = Math.min(shown.length - 1, cur + 1); mark(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); cur = Math.max(0, cur - 1); mark(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (cur >= 0) pick(shown[cur]); else if (shown.length === 1) pick(shown[0]); else { box.classList.add("hidden"); inp.onchange?.({ target: inp }); } }
+    else if (e.key === "Escape") box.classList.add("hidden");
+  });
+  box.addEventListener("mousedown", (e) => { const d = e.target.closest(".ci"); if (d) { e.preventDefault(); pick(shown[Number(d.dataset.n)]); } });
+  inp.addEventListener("blur", () => setTimeout(() => box.classList.add("hidden"), 120));
+}
+
 // ---------- 학생별 성적 추이 (같은 학년도 시험들을 이름+센터로 묶음) ----------
 const TREND = { cache: {}, charts: [] };
 async function trendData(year) {
@@ -1096,7 +1125,7 @@ async function viewTrend(v) {
   const cell = (r, g) => { const c = r.k.cols[g]; return c.v[r.i] == null ? `<td class="b0 muted">미응시</td><td class="muted">-</td><td class="muted">-</td>` : `<td class="b0 big">${f1(c.v[r.i])}</td><td>${c.rk[r.i]} <span class="muted">/ ${r.k.N}</span></td><td>${fp(c.pct[r.i])}</td>`; };
   const all = [...people.values()].sort((a, b) => a.name.localeCompare(b.name, "ko") || a.center.localeCompare(b.center, "ko"));
   v.innerHTML = `<div class="row" style="margin-bottom:12px">
-      <input id="trQ" list="trL" placeholder="학생 이름 검색 (전체 센터)" style="width:210px"><datalist id="trL">${all.map((p) => `<option value="${esc(p.name)} (${esc(p.center)})">`).join("")}</datalist>
+      <span class="combo"><input id="trQ" autocomplete="off" placeholder="학생 이름 검색 (전체 센터)" style="width:210px"></span>
       <span class="sub" style="margin-left:6px">센터</span><select id="trC">${centers.map((c) => `<option ${c === S.trC ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
       <span class="sub" style="margin-left:6px">학생</span><select id="trN" style="min-width:140px">${names.map((p) => `<option ${p.name === S.trN ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
       <button class="small" id="trPrev">◀</button><button class="small" id="trNext">▶</button>
@@ -1116,6 +1145,7 @@ async function viewTrend(v) {
     else toast("해당 이름의 학생이 없습니다.");
   };
   $("#trN").onchange = (e) => { S.trN = e.target.value; viewTrend(v); };
+  attachCombo($("#trQ"), all.map((p) => `${p.name} (${p.center})`));
   const step = (d) => { const j = names.findIndex((p) => p.name === S.trN) + d; if (names[j]) { S.trN = names[j].name; viewTrend(v); } else toast(d < 0 ? `${S.trC} 센터의 첫 번째 학생입니다.` : `${S.trC} 센터의 마지막 학생입니다.`); };
   $("#trPrev").onclick = () => step(-1); $("#trNext").onclick = () => step(1);
   if (!rows.length || !window.Chart) return;
@@ -1251,7 +1281,7 @@ function viewReport(v) {
   if (S.stu < 0 || !idx.includes(S.stu)) S.stu = idx[0] ?? 0;
   const cnt = {}; k.rows.forEach((r) => (cnt[r.name] = (cnt[r.name] || 0) + 1));
   v.innerHTML = `<div class="row noprint" style="margin-bottom:8px">${centerFilter(ex)}
-      <input id="stuQ" list="stuL" placeholder="학생 이름 입력" style="width:200px"><datalist id="stuL">${idx.map((i) => `<option value="${esc(k.rows[i].name)}${cnt[k.rows[i].name] > 1 ? " (" + esc(k.rows[i].center) + ")" : ""}">`).join("")}</datalist>
+      <span class="combo"><input id="stuQ" autocomplete="off" placeholder="학생 이름 입력" style="width:200px"></span>
       <select id="stuS">${idx.map((i) => `<option value="${i}" ${i === S.stu ? "selected" : ""}>${esc(k.rows[i].name)} (${esc(k.rows[i].center)})</option>`).join("")}</select>
       <button class="small" id="prev">◀</button><button class="small" id="next">▶</button>
       <div class="grow"></div>
@@ -1261,6 +1291,7 @@ function viewReport(v) {
   Promise.all([400, 700, 800].map((w) => document.fonts.load(`${w} 12px "WZP"`))).then(() => { try { ch.update(); } catch { /* 화면 이동 시 무시 */ } });
   const go = (i) => { S.stu = i; viewReport(v); };
   $("#stuS").onchange = (e) => go(Number(e.target.value));
+  attachCombo($("#stuQ"), idx.map((i) => k.rows[i].name + (cnt[k.rows[i].name] > 1 ? ` (${k.rows[i].center})` : "")));
   $("#stuQ").onchange = (e) => {
     const q = e.target.value.trim(); const m = q.match(/^(.*?) \((.*)\)$/);
     const i = idx.find((j) => (m ? k.rows[j].name === m[1] && k.rows[j].center === m[2] : k.rows[j].name === q));
