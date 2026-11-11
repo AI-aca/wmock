@@ -146,7 +146,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 @font-face{font-family:"WZP";font-weight:600;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-SemiBold.woff2) format("woff2")}
 @font-face{font-family:"WZP";font-weight:700;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-Bold.woff2) format("woff2")}
 @font-face{font-family:"WZP";font-weight:800;font-display:swap;src:url(https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2/Pretendard-ExtraBold.woff2) format("woff2")}
-.rpwrap{display:flex;justify-content:center;padding:10px 0 40px;overflow:auto}
+.rpwrap{display:flex;flex-direction:column;align-items:center;gap:24px;padding:10px 0 40px;overflow:auto}
 .rp{--wr:#047857;--wr2:#0891b2;--wg:#10b981;--ink:#0f172a;--sub2:#64748b;--ln:#e2e8f0;--pale:#f8fafc;
   width:794px;height:1123px;background:#fff;color:var(--ink);padding:36px 44px 30px;display:flex;flex-direction:column;font-family:"WZP","Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:12px;letter-spacing:-.02em;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative;overflow:hidden}
 .rp::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:linear-gradient(180deg,var(--wr),var(--wr2))}
@@ -182,11 +182,21 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 .rp .chartbox{flex:1;min-height:200px;margin:2px 0 38px;border:1px solid var(--ln);border-radius:10px;padding:8px 8px 4px;overflow:hidden}
 .rp .foot{position:absolute;left:44px;right:44px;bottom:16px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--ln);padding-top:7px}
 .rp .foot b{color:var(--wr);font-weight:800;letter-spacing:.06em}
+.rp .hd.sm img{height:40px}.rp .hd.sm .t2{font-size:18px}
+.rp .who2{display:flex;justify-content:space-between;align-items:baseline;margin:18px 0 0;font-size:12px;color:var(--sub2)}
+.rp .who2 b{font-size:16px;color:var(--ink);font-weight:800;margin-right:6px}
+.rp table.qt{table-layout:fixed;margin-bottom:10px}.rp .p2sec{margin-top:26px}
+.rp table.qt th,.rp table.qt td{padding:7px 1px;font-size:11.5px}
+.rp table.qt thead th{font-size:11px}
+.rp table.qt th.rh{width:66px;font-size:10.5px}
+.rp table.qt td.ar{color:var(--sub2);font-size:10px}
+.rp table.qt td.pad,.rp table.qt th.pad{background:#fff}
+.rp thead th.pad{background:#fff!important;border-color:var(--ln)!important}
 #rpStage{position:fixed;left:-10000px;top:0}
 @media print{
   body{background:#fff}body::before{display:none}
   aside,header,.noprint,.dirty{display:none!important}
-  #app{display:block}.content{padding:0}.rpwrap{padding:0}.rp{box-shadow:none}
+  #app{display:block}.content{padding:0}.rpwrap{padding:0;gap:0;display:block}.rp{box-shadow:none;break-after:page;page-break-after:always}.rp:last-child{break-after:auto;page-break-after:auto}
   @page{size:A4;margin:0}
 }
 </style>
@@ -371,7 +381,7 @@ function calc(ex) {
     return { name: x.name, math: x.math, sci: x.sci, tot: t, pm, ps, pt };
   });
   const itemAvg = { m: c.math.items.map((_, i) => avg(st.map((s) => s.m[i]))), s: c.sci.items.map((_, i) => avg(st.map((s) => s.s[i]))) };
-  return { rows, cols, A, max, bands, cuts, km, ks, mA, sA, N: rows.length, itemAvg };
+  return { rows, cols, A, max, bands, cuts, km, ks, mA, sA, N: rows.length, itemAvg, stu: st };
 }
 function cutPct(vals, cut) { const n = vals.filter(isNum); if (!n.length) return null; return Math.min(1, (n.filter((v) => R9(v) > R9(cut)).length + 1) / n.length); }
 const f1 = (v) => (isNum(v) ? (Math.round(v * 10 + 1e-9) / 10).toFixed(1) : "-");
@@ -986,7 +996,38 @@ function reportHtml(ex, k, i) {
    </div>
    <div class="sec">성취도 그래프 <span>환산 점수 기준</span></div>
    <div class="chartbox"><canvas width="688" height="228"></canvas></div>
-   <div class="foot"><span><b>WEIZMANN</b>&nbsp; 와이즈만 영재교육 · ${esc(c.title)} ${ex.round}차</span><span>${esc(r.center)} · ${esc(r.name)}</span></div>
+   <div class="foot"><span><b>WEIZMANN</b>&nbsp; 와이즈만 영재교육 · ${esc(c.title)} ${ex.round}차</span><span>${esc(r.center)} · ${esc(r.name)} · 1/2</span></div>
+  </div>${reportPage2(ex, k, i)}`;
+}
+// 성적표 2쪽: 문항별 상세 점수 (문항이 많으면 여러 줄로 나눠 같은 칸 너비로 표시)
+function reportPage2(ex, k, i) {
+  const r = k.rows[i], c = ex.config, st = k.stu[i], PER = 13;
+  const block = (key, label) => {
+    const items = c[key].items, my = (key === "math" ? st.m : st.s) || [], av = key === "math" ? k.itemAvg.m : k.itemAvg.s;
+    const took = my.some(isNum);
+    if (!items.length) return `<div class="sec">${label} 문항별 점수</div><div class="note">문항 정보가 없습니다.</div>`;
+    const nb = Math.ceil(items.length / PER), per = Math.ceil(items.length / nb);
+    const tbls = [];
+    for (let b = 0; b < nb; b++) {
+      const ids = items.map((_, j) => j).slice(b * per, b * per + per);
+      const pad = (row) => Array(per - ids.length).fill(row ? `<td class="pad"></td>` : `<th class="pad"></th>`).join("");
+      tbls.push(`<table class="qt"><thead><tr><th class="rh" style="background:#1e293b;color:#fff">문항</th>${ids.map((j) => `<th>${esc(items[j].no)}</th>`).join("")}${pad(false)}</tr></thead><tbody>
+        <tr><th class="rh">영역</th>${ids.map((j) => `<td class="ar">${esc(items[j].area)}</td>`).join("")}${pad(true)}</tr>
+        <tr><th class="rh">만점</th>${ids.map((j) => `<td>${fmax(items[j].max)}</td>`).join("")}${pad(true)}</tr>
+        <tr><th class="rh">전체 평균</th>${ids.map((j) => `<td>${f1(av[j])}</td>`).join("")}${pad(true)}</tr>
+        <tr class="me"><th class="rh">개인 점수</th>${ids.map((j) => { const x = my[j]; return `<td>${isNum(x) ? fmax(x) : took ? "-" : "미응시"}</td>`; }).join("")}${pad(true)}</tr></tbody></table>`);
+    }
+    const sum = key === "math" ? r.mt : r.st, mx = key === "math" ? k.max.mt : k.max.st, aa = key === "math" ? k.A.mt : k.A.st;
+    return `<div class="sec p2sec">${label} 문항별 점수 <span>${items.length}문항 · 개인 ${isNum(sum) ? fmax(sum) : "미응시"} / 만점 ${fmax(mx)} · 전체 평균 ${f1(aa)}</span></div>${tbls.join("")}`;
+  };
+  return `<div class="rp">
+   <div class="hd sm"><img src="${WZ_LOGO}" alt="와이즈만">
+     <div class="tt"><div class="t1">${ex.year}학년도 영재학교 대비</div><div class="t2">${esc(c.title)} <b>${ex.round}차</b> 문항별 상세 점수</div></div></div>
+   <div class="who2"><span><b>${esc(r.name)}</b>${esc(r.center)} 센터</span><span>응시 ${k.N}명 기준</span></div>
+   ${block("math", "수학")}
+   ${block("sci", "과학")}
+   <div class="note">▷ 전체 평균은 이 시험 응시자 전체의 문항별 평균입니다. '-'는 해당 문항 점수가 입력되지 않은 경우입니다.</div>
+   <div class="foot"><span><b>WEIZMANN</b>&nbsp; 와이즈만 영재교육 · ${esc(c.title)} ${ex.round}차</span><span>${esc(r.center)} · ${esc(r.name)} · 2/2</span></div>
   </div>`;
 }
 function drawChart(el, k, i) {
@@ -1067,10 +1108,13 @@ async function pdfOf(ex, k, i) {
   const st = $("#rpStage"); st.innerHTML = reportHtml(ex, k, i);
   const ch = drawChart(st, k, i);
   try {
-    const node = st.firstElementChild;
-    const canvas = await htmlToImage.toCanvas(node, { pixelRatio: 2, backgroundColor: "#ffffff", width: 794, height: 1123, ...(await fontOpt()) });
     const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-    pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+    const pages = [...st.querySelectorAll(".rp")];
+    for (let p = 0; p < pages.length; p++) {
+      const canvas = await htmlToImage.toCanvas(pages[p], { pixelRatio: 2, backgroundColor: "#ffffff", width: 794, height: 1123, ...(await fontOpt()) });
+      if (p) pdf.addPage();
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, 210, 297);
+    }
     return pdf.output("blob");
   } finally { ch.destroy(); st.innerHTML = ""; }
 }
