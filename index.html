@@ -143,11 +143,10 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
   <div class="lbox">
     <div class="logo"><svg width="24" height="24" viewBox="0 0 32 32"><path d="M8 23V13M14 23V9M20 23v-7M26 23V11" stroke="#0a0d18" stroke-width="3.2" stroke-linecap="round"/></svg></div>
     <h1>영재학교 모의고사 관리</h1>
-    <p id="lmsg">관리자 비밀번호를 입력하세요.</p>
-    <input id="lpw" type="password" placeholder="비밀번호" autocomplete="current-password">
-    <input id="lpw2" type="password" placeholder="비밀번호 확인" class="hidden" autocomplete="new-password">
-    <button class="primary" id="lbtn">로그인</button>
+    <p id="lmsg">승인된 구글 계정으로 로그인하세요.</p>
+    <div id="gbtn" style="margin-top:20px;min-height:44px;display:flex;justify-content:center"></div>
     <div class="err" id="lerr"></div>
+    <p class="hint" style="margin-top:6px">처음 로그인하면 '승인 대기'로 등록되고, 관리자가 승인한 뒤부터 들어올 수 있습니다.</p>
   </div>
 </div>
 
@@ -158,7 +157,7 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
     <div><div class="lab">시험(차수)</div><div class="exlist" id="exList"></div></div>
     <button id="btnNew">+ 새 시험 만들기</button>
     <div class="grow"></div>
-    <button class="ghost small" id="btnPw">비밀번호 변경</button>
+    <div class="hint" id="whoami" style="text-align:center;word-break:break-all"></div>
     <button class="ghost small" id="btnLogout">로그아웃</button>
   </aside>
   <main>
@@ -172,6 +171,7 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
         <span class="sep"></span>
         <button class="tab" data-t="config">시험 설정</button>
         <button class="tab" data-t="manage">시험 목록·가져오기</button>
+        <button class="tab hidden" data-t="users" id="tabUsers">사용자 승인</button>
       </div>
       <div class="grow"></div>
       <button class="primary" id="btnSave">저장</button>
@@ -190,7 +190,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let token = sessionStorage.getItem("mock_token") || "";
-const S = { exams: [], year: null, exam: null, backup: null, tab: "input", dirty: false, center: "", rankBy: "conv", stu: -1 };
+const S = { user: null, exams: [], year: null, exam: null, backup: null, tab: "input", dirty: false, center: "", rankBy: "conv", stu: -1 };
 const AREA_MAP = { 기: "기하", 조: "조합", 대: "대수", 물: "물리", 화: "화학", 생: "생명과학", 지: "지구과학" };
 const DEF_CUTS = ["서울, 경기, KSA", "인천, 대구, 대전", "광주, 세종"];
 
@@ -314,52 +314,44 @@ const fp = (v, dash = "-") => (isNum(v) ? (Math.round(v * 1000 + 1e-9) / 10).toF
 const fmax = (v) => (isNum(v) ? (Number.isInteger(R9(v)) ? String(R9(v)) : f1(v)) : "-");
 
 // ======================= 로그인 =======================
-let initialized = true;
+let gReady = false;
 async function showLogin() {
   $("#app").classList.add("hidden"); $("#login").classList.remove("hidden");
-  try { initialized = (await api("status")).initialized; } catch (e) { $("#lerr").textContent = e.message; }
-  $("#lpw2").classList.toggle("hidden", initialized);
-  $("#lmsg").textContent = initialized ? "관리자 비밀번호를 입력하세요." : "처음 사용입니다. 사용할 관리자 비밀번호(8자 이상)를 정하세요.";
-  $("#lbtn").textContent = initialized ? "로그인" : "비밀번호 설정";
-  $("#lpw").value = ""; $("#lpw2").value = ""; $("#lpw").focus();
-}
-async function doLogin() {
-  const pw = $("#lpw").value; $("#lerr").textContent = "";
+  $("#lerr").textContent = "";
   try {
-    if (!initialized) {
-      if (pw.length < 8) throw new Error("8자 이상 입력하세요.");
-      if (pw !== $("#lpw2").value) throw new Error("두 비밀번호가 다릅니다.");
-      token = (await api("setup", { password: pw })).token;
-    } else token = (await api("login", { password: pw })).token;
-    sessionStorage.setItem("mock_token", token);
-    $("#login").classList.add("hidden");
+    const { clientId } = await api("status");
+    if (!clientId) { $("#lerr").textContent = "구글 로그인 설정(클라이언트 ID)이 아직 없습니다."; return; }
+    if (!window.google?.accounts?.id) await loadScript("https://accounts.google.com/gsi/client");
+    if (!gReady) { google.accounts.id.initialize({ client_id: clientId, callback: onGoogle, auto_select: false }); gReady = true; }
+    $("#gbtn").innerHTML = "";
+    google.accounts.id.renderButton($("#gbtn"), { theme: "filled_black", size: "large", text: "signin_with", shape: "pill", locale: "ko", width: 280 });
+  } catch (e) { $("#lerr").textContent = e.message; }
+}
+async function onGoogle(resp) {
+  $("#lerr").textContent = "확인 중…";
+  try {
+    const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", apikey: PUB_KEY, Authorization: "Bearer " + PUB_KEY }, body: JSON.stringify({ action: "glogin", credential: resp.credential }) });
+    const d = await r.json();
+    if (!d.ok) { $("#lerr").textContent = (d.email ? d.email + " — " : "") + (d.error || "로그인하지 못했습니다."); return; }
+    token = d.token; sessionStorage.setItem("mock_token", token);
+    S.user = { email: d.email, role: d.role, name: d.name };
+    $("#login").classList.add("hidden"); $("#lerr").textContent = "";
     await startApp();
   } catch (e) { $("#lerr").textContent = e.message; }
 }
-$("#lbtn").onclick = doLogin;
-$("#lpw").onkeydown = $("#lpw2").onkeydown = (e) => { if (e.key === "Enter") doLogin(); };
 $("#btnLogout").onclick = async () => {
   if (!(await leaveOk())) return;
   try { await api("logout"); } catch {}
-  token = ""; sessionStorage.removeItem("mock_token"); S.exam = null; setDirty(false); showLogin();
+  token = ""; sessionStorage.removeItem("mock_token"); S.exam = null; S.user = null; setDirty(false);
+  try { google.accounts.id.disableAutoSelect(); } catch {}
+  showLogin();
 };
-$("#btnPw").onclick = () => {
-  const m = modal(`<h3>비밀번호 변경</h3><div style="display:flex;flex-direction:column;gap:8px">
-    <input type="password" id="pwo" placeholder="현재 비밀번호"><input type="password" id="pwn" placeholder="새 비밀번호 (8자 이상)"><input type="password" id="pwn2" placeholder="새 비밀번호 확인"></div>
-    <div class="err" id="pwe"></div><div class="row" style="justify-content:flex-end"><button id="pwc">취소</button><button class="primary" id="pwok">변경</button></div>`);
-  $("#pwc", m).onclick = () => m.remove();
-  $("#pwok", m).onclick = async () => {
-    try {
-      if ($("#pwn", m).value !== $("#pwn2", m).value) throw new Error("새 비밀번호가 서로 다릅니다.");
-      await api("changePassword", { oldPassword: $("#pwo", m).value, newPassword: $("#pwn", m).value });
-      m.remove(); toast("비밀번호를 바꿨습니다.");
-    } catch (e) { $("#pwe", m).textContent = e.message; }
-  };
-};
-
 // ======================= 시험 목록 =======================
 async function startApp() {
+  if (!S.user) S.user = (await api("me")).user;
   $("#app").classList.remove("hidden");
+  $("#whoami").textContent = `${S.user.email}${S.user.role === "admin" ? " (관리자)" : ""}`;
+  $("#tabUsers").classList.toggle("hidden", S.user.role !== "admin");
   await loadList();
   const last = Number(sessionStorage.getItem("mock_exam") || 0);
   if (last && S.exams.some((e) => e.id === last)) await openExam(last, true);
@@ -476,6 +468,7 @@ function render() {
   $("#btnSave").classList.toggle("hidden", !ex);
   const v = $("#view");
   if (S.tab === "manage") return viewManage(v);
+  if (S.tab === "users") return viewUsers(v);
   if (!ex) { v.innerHTML = `<div class="empty">왼쪽에서 학년도와 시험(차수)을 고르세요.<br>처음이면 [+ 새 시험 만들기] 또는 [시험 목록·가져오기]에서 기존 구글 시트를 가져오세요.</div>`; return; }
   ({ input: viewInput, total: viewTotal, rank: viewRank, report: viewReport, config: viewConfig })[S.tab](v);
 }
@@ -881,14 +874,53 @@ async function zipAll(ex, k, idx) {
   } catch (e) { toast(e.message, 5000); } finally { busy(); }
 }
 
+// ---------- 사용자 승인 (관리자) ----------
+async function viewUsers(v) {
+  if (S.user?.role !== "admin") { v.innerHTML = `<div class="empty">관리자만 볼 수 있습니다.</div>`; return; }
+  v.innerHTML = `<div class="empty">불러오는 중…</div>`;
+  let users = [];
+  try { users = (await api("userList")).users; } catch (e) { v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const st = { approved: ["승인", "var(--ok)"], pending: ["승인 대기", "var(--warn)"], blocked: ["차단", "var(--bad)"] };
+  const dt = (x) => (x ? new Date(x).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "-");
+  const pend = users.filter((u) => u.status === "pending").length;
+  v.innerHTML = `<div class="grid2"><div class="card" style="grid-column:1/-1"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">사용자 승인 명단</h3>${pend ? `<span class="pill" style="color:var(--warn)">승인 대기 ${pend}명</span>` : ""}<div class="grow"></div></div>
+    <p class="hint" style="margin-bottom:12px">승인된 구글 계정만 사이트에 들어올 수 있습니다. 처음 로그인한 사람은 '승인 대기'로 자동 등록됩니다. 승인을 취소하거나 차단하면 즉시 접속이 끊깁니다.</p>
+    <div class="row" style="margin-bottom:14px"><input id="uEmail" placeholder="추가할 구글 이메일" style="width:260px"><input id="uName" placeholder="이름(선택)" style="width:140px">
+      <select id="uRole"><option value="member">사용자</option><option value="admin">관리자</option></select><button class="primary small" id="uAdd">승인 추가</button></div>
+    <table class="v"><thead><tr><th>이메일</th><th>이름</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>등록</th><th></th></tr></thead><tbody>
+    ${users.map((u) => `<tr><td class="l">${esc(u.email)}${u.email === S.user.email ? ' <span class="muted">(나)</span>' : ""}</td><td>${esc(u.name)}</td><td>${u.role === "admin" ? "관리자" : "사용자"}</td>
+      <td><span class="pill" style="color:${st[u.status][1]}">${st[u.status][0]}</span></td><td class="muted">${dt(u.last_login)}</td><td class="muted">${dt(u.created_at)}</td>
+      <td style="text-align:right">${u.email === S.user.email ? "" : `
+        ${u.status !== "approved" ? `<button class="small primary" data-u="${esc(u.email)}" data-act="approve">승인</button>` : `<button class="small" data-u="${esc(u.email)}" data-act="block">차단</button>`}
+        <button class="small" data-u="${esc(u.email)}" data-act="role">${u.role === "admin" ? "사용자로" : "관리자로"}</button>
+        <button class="small danger" data-u="${esc(u.email)}" data-act="del">삭제</button>`}</td></tr>`).join("")}</tbody></table></div></div>`;
+  const save = async (u, patch) => { try { await api("userSave", { email: u.email, name: u.name, role: u.role, status: u.status, ...patch }); viewUsers(v); toast("저장했습니다."); } catch (e) { toast(e.message, 4000); } };
+  v.onclick = async (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "uAdd") {
+      const email = $("#uEmail").value.trim().toLowerCase();
+      if (!email) return toast("이메일을 입력하세요.");
+      return save({ email, name: $("#uName").value.trim(), role: $("#uRole").value, status: "approved" }, {});
+    }
+    const u = users.find((x) => x.email === t.dataset.u); if (!u) return;
+    if (t.dataset.act === "approve") save(u, { status: "approved" });
+    else if (t.dataset.act === "block") { if (await confirmBox(`${u.email} 계정을 차단할까요? 바로 접속이 끊깁니다.`, "차단")) save(u, { status: "blocked" }); }
+    else if (t.dataset.act === "role") save(u, { role: u.role === "admin" ? "member" : "admin" });
+    else if (t.dataset.act === "del") {
+      if (!(await confirmBox(`${u.email} 계정을 명단에서 삭제할까요?\n다시 로그인하면 '승인 대기'로 새로 등록됩니다.`, "삭제"))) return;
+      try { await api("userDelete", { email: u.email }); viewUsers(v); toast("삭제했습니다."); } catch (err) { toast(err.message); }
+    }
+  };
+}
+
 // ---------- 시험 목록·가져오기 ----------
 let pending = []; // 가져오기 미리보기
 function viewManage(v) {
   const ys = [...new Set(S.exams.map((e) => e.year))].sort((a, b) => b - a);
   v.innerHTML = `<div class="grid2">
    <div class="card"><h3>시험 목록</h3>
-    ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>시행일</th><th>응시</th><th>수정</th><th></th></tr></thead><tbody>
-     ${ys.map((y) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e) => `<tr><td>${e.year}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td>
+    ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>시행일</th><th>응시</th><th>수정</th><th>수정자</th><th></th></tr></thead><tbody>
+     ${ys.map((y) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e) => `<tr><td>${e.year}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${esc(e.date || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
        <td><button class="small" data-open="${e.id}">열기</button> <button class="small danger" data-delx="${e.id}">삭제</button></td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
     ${S.exam?.id && S.backup ? `<div style="margin-top:14px" class="hint">현재 시험(${S.exam.year}학년도 ${S.exam.round}차)의 직전 저장본: ${new Date(S.backup.saved_at).toLocaleString("ko-KR")} · ${S.backup.n}명 <button class="small" id="restore">이 저장본으로 되돌리기</button></div>` : ""}
    </div>
