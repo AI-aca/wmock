@@ -909,12 +909,12 @@ function drawChart(el, k, i) {
       { label: "만점", data: [k.max.cm, k.max.cs, k.max.ct].map(z), backgroundColor: "#e2e8f0", borderRadius: 4, barPercentage: .78, categoryPercentage: .7 },
       { label: "전체 평균", data: [k.A.cm, k.A.cs, k.A.ct].map(z), backgroundColor: "#67e8f9", borderRadius: 4, barPercentage: .78, categoryPercentage: .7 },
       { label: "개인 점수", data: [r.cm, r.cs, r.conv].map(z), backgroundColor: "#059669", borderRadius: 4, barPercentage: .78, categoryPercentage: .7 }] },
-    options: { responsive: false, animation: false, devicePixelRatio: 2, layout: { padding: { top: 16 } },
+    options: { responsive: false, animation: false, devicePixelRatio: 2, layout: { padding: { top: 24 } },
       plugins: { legend: { position: "bottom", labels: { color: "#334155", font: { size: 11 }, boxWidth: 12, boxHeight: 12, padding: 14 } } },
       scales: { x: { ticks: { color: "#0f172a", font: { size: 12, weight: "bold" } }, grid: { display: false }, border: { color: "#e2e8f0" } },
         y: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#f1f5f9" }, border: { display: false } } } },
     plugins: [{ id: "vals", afterDatasetsDraw(ch) { const g = ch.ctx; g.save(); g.textAlign = "center";
-      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => { g.font = (di === 2 ? "bold " : "") + "10.5px Malgun Gothic, sans-serif"; g.fillStyle = di === 2 ? "#047857" : "#64748b"; g.fillText(d.data[j].toFixed(1), b.x, b.y - 4); })); g.restore(); } }],
+      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => { g.font = (di === 2 ? "bold " : "") + "10.5px Malgun Gothic, sans-serif"; g.fillStyle = di === 2 ? "#047857" : "#64748b"; g.fillText(d.data[j].toFixed(1), b.x, b.y - 9); })); g.restore(); } }],
   });
 }
 function viewReport(v) {
