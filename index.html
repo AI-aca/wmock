@@ -551,6 +551,10 @@ async function save() {
     if (!(await confirmBox(`⚠ 문항 만점을 넘는 점수가 ${ov.length}개 있어 그대로는 저장할 수 없습니다.\n\n${overText(ov)}\n\n이 점수들을 문항 만점으로 맞추고 저장할까요?`, "만점으로 맞추고 저장", "취소"))) return;
     capScores(ov); if (S.tab === "input") viewInput($("#view"));
   }
+  // 동명이인 경고 (같은 이름이 2명 이상)
+  const byName = {}; ex.students.filter((s) => s.name.trim()).forEach((s) => (byName[s.name.trim()] ||= []).push(s.center.trim() || "센터 없음"));
+  const dups = Object.entries(byName).filter(([, cs]) => cs.length > 1);
+  if (dups.length && !(await confirmBox(`⚠ 동명이인이 ${dups.length}명 있습니다. 이름 뒤에 숫자를 붙여 구분해 주세요(예: 홍길동1, 홍길동2).\n\n${dups.slice(0, 12).map(([n, cs]) => `${n}: ${cs.join(", ")}`).join("\n")}${dups.length > 12 ? `\n… 외 ${dups.length - 12}명` : ""}\n\n그래도 지금 저장할까요?`, "그대로 저장", "취소하고 고치기"))) return;
   const names = ex.students.filter((s) => s.name.trim());
   busy("저장 중…");
   try {
@@ -1430,7 +1434,8 @@ async function zipAll(ex, k, idx) {
     const zip = new JSZip(); let n = 0;
     busy(`성적표 만드는 중… (0/${idx.length})`);
     for (const i of idx) {
-      zip.file(pdfName(ex, k.rows[i]), await pdfOf(ex, k, i));
+      let fn = pdfName(ex, k.rows[i]); for (let d = 2; zip.file(fn); d++) fn = pdfName(ex, k.rows[i]).replace(/\.pdf$/, ` (${d}).pdf`); // 같은 파일 이름이면 덮어쓰지 않음
+      zip.file(fn, await pdfOf(ex, k, i));
       n++; $("#busyMsg").textContent = `성적표 만드는 중… (${n}/${idx.length})`; busyProg(n / idx.length);
       await new Promise((r) => setTimeout(r, 0));
     }
