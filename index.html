@@ -962,6 +962,8 @@ function onGridPaste(e) {
 const NO_RE = /^\d+(-\d+)?$/; // 문항번호: 1 또는 1-1
 function viewConfig(v) {
   const ex = S.exam, c = ex.config;
+  // 다시 그려도 스크롤·입력 위치 유지
+  const keep = v.querySelector(".grid2") ? { tw: [...v.querySelectorAll(".tw")].map((x) => x.scrollTop), wy: window.scrollY, ae: (() => { const a = document.activeElement; if (!a || !v.contains(a)) return null; return a.id ? `#${a.id}` : a.dataset.k ? `[data-k="${a.dataset.k}"][data-i="${a.dataset.i}"][data-f="${a.dataset.f}"]` : a.dataset.cut != null ? `[data-cut="${a.dataset.cut}"][data-f="${a.dataset.f}"]` : null; })(), sel: document.activeElement?.selectionStart } : null;
   const itemRows = (key) => c[key].items.map((it, i) => `<tr><td class="muted">${i + 1}</td>
       <td><input data-k="${key}" data-i="${i}" data-f="no" data-prev="${esc(it.no)}" value="${esc(it.no)}" placeholder="예: 1, 1-1" class="${it.no === "" || NO_RE.test(it.no) ? "" : "bad"}"></td>
       <td><select data-k="${key}" data-i="${i}" data-f="area">${c[key].areas.map((a) => `<option ${a === it.area ? "selected" : ""}>${esc(a)}</option>`).join("")}${c[key].areas.includes(it.area) ? "" : `<option selected>${esc(it.area)}</option>`}</select></td>
@@ -970,9 +972,9 @@ function viewConfig(v) {
   const subjCard = (key, label) => {
     const k = calc(ex);
     const mx = key === "math" ? k.max.m : k.max.s, areas = c[key].areas;
-    return `<div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">${label} 문항 <span style="color:var(--gold)">(${c[key].items.length}문항 · 만점 ${fmax(key === "math" ? k.max.mt : k.max.st)})</span></h3><div class="grow"></div>
+    return `<div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">${label} 문항 <span id="cfgHd-${key}" style="color:var(--gold)">(${c[key].items.length}문항 · 만점 ${fmax(key === "math" ? k.max.mt : k.max.st)})</span></h3><div class="grow"></div>
       <div class="row" style="gap:6px">${[1, 5, 10].map((n) => `<button class="small" data-addq="${key}" data-n="${n}">+${n}문항</button>`).join("")}</div></div>
-      <div class="hint" style="margin-bottom:8px">영역: ${areas.map((a, i) => `${esc(a)} ${fmax(mx[i])}점`).join(" · ")}</div>
+      <div class="hint" id="cfgAr-${key}" style="margin-bottom:8px">영역: ${areas.map((a, i) => `${esc(a)} ${fmax(mx[i])}점`).join(" · ")}</div>
       <div class="tw" style="max-height:420px"><table class="v itemtbl qtbl"><thead><tr><th style="width:40px">#</th><th style="width:110px">문항번호</th><th style="width:130px">영역</th><th style="width:90px">배점</th><th style="width:40px"></th></tr></thead><tbody>${itemRows(key)}</tbody></table></div></div>`;
   };
   v.innerHTML = `<div class="grid2">
@@ -991,13 +993,24 @@ function viewConfig(v) {
     </div>
     <div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">학교별 합격 커트라인(예상, 환산 점수)</h3><div class="grow"></div><button class="small" id="cutAdd">+ 줄</button></div>
       <table class="v itemtbl"><thead><tr><th>구분</th><th style="width:110px">수학 환산</th><th style="width:110px">과학 환산</th><th style="width:90px">환산 총점</th><th style="width:40px"></th></tr></thead>
-      <tbody>${c.cutoffs.map((x, i) => `<tr><td><input data-cut="${i}" data-f="name" value="${esc(x.name)}"></td><td><input data-cut="${i}" data-f="math" type="number" step="0.1" value="${x.math ?? ""}"></td><td><input data-cut="${i}" data-f="sci" type="number" step="0.1" value="${x.sci ?? ""}"></td><td class="muted">${isNum(x.math) || isNum(x.sci) ? f1((x.math || 0) + (x.sci || 0)) : "-"}</td><td><button class="small ghost" data-cutdel="${i}">✕</button></td></tr>`).join("")}</tbody></table>
+      <tbody>${c.cutoffs.map((x, i) => `<tr><td><input data-cut="${i}" data-f="name" value="${esc(x.name)}"></td><td><input data-cut="${i}" data-f="math" type="number" step="0.1" value="${x.math ?? ""}"></td><td><input data-cut="${i}" data-f="sci" type="number" step="0.1" value="${x.sci ?? ""}"></td><td class="muted" data-cuttot="${i}">${isNum(x.math) || isNum(x.sci) ? f1((x.math || 0) + (x.sci || 0)) : "-"}</td><td><button class="small ghost" data-cutdel="${i}">✕</button></td></tr>`).join("")}</tbody></table>
       <p class="hint" style="margin-top:8px">백분위는 이 시험 응시자 분포로 자동 계산됩니다.</p>
       <div style="margin-top:14px"><div class="lab">영역 이름 (쉼표로 구분, 순서대로 성적표에 표시)</div>
         <div class="row"><span class="sub" style="width:40px">수학</span><input class="grow" id="aM" value="${esc(c.math.areas.join(", "))}"></div>
         <div class="row" style="margin-top:6px"><span class="sub" style="width:40px">과학</span><input class="grow" id="aS" value="${esc(c.sci.areas.join(", "))}"></div></div>
     </div>
     ${subjCard("math", "수학")}${subjCard("sci", "과학")}</div>`;
+  if (keep) {
+    v.querySelectorAll(".tw").forEach((x, i) => { if (keep.tw[i] != null) x.scrollTop = keep.tw[i]; });
+    window.scrollTo(0, keep.wy);
+    const a = keep.ae && v.querySelector(keep.ae); if (a) { a.focus({ preventScroll: true }); try { if (keep.sel != null) a.setSelectionRange(keep.sel, keep.sel); } catch { /* 숫자칸 */ } }
+  }
+  // 배점·영역 변경 시 전체를 다시 그리지 않고 합계만 갱신
+  const refreshSum = (key) => {
+    const k = calc(ex), mx = key === "math" ? k.max.m : k.max.s;
+    $(`#cfgHd-${key}`).textContent = `(${c[key].items.length}문항 · 만점 ${fmax(key === "math" ? k.max.mt : k.max.st)})`;
+    $(`#cfgAr-${key}`).textContent = `영역: ${c[key].areas.map((a, i) => `${a} ${fmax(mx[i])}점`).join(" · ")}`;
+  };
   const ch = () => setDirty(true);
   const numOk = (el, cur, lo, hi, label) => {
     const t = el.value.trim();
@@ -1034,8 +1047,9 @@ function viewConfig(v) {
       if (val !== "" && !NO_RE.test(val)) { t.value = t.dataset.prev; t.classList.remove("bad"); confirmBox("문항번호는 1 또는 1-1 같은 형식만 입력할 수 있습니다.\n(예: 20-1 가능, 20-(1)·20번 불가)", "확인", ""); return; }
       t.value = val; t.dataset.prev = val; c[t.dataset.k].items[Number(t.dataset.i)].no = val; ch(); return;
     }
-    if (t.dataset.k && t.dataset.f === "area") { c[t.dataset.k].items[Number(t.dataset.i)].area = t.value; ch(); viewConfig(v); }
-    else if (t.dataset.cut != null || (t.dataset.k && t.dataset.f === "max")) viewConfig(v);
+    if (t.dataset.k && t.dataset.f === "area") { c[t.dataset.k].items[Number(t.dataset.i)].area = t.value; ch(); refreshSum(t.dataset.k); }
+    else if (t.dataset.k && t.dataset.f === "max") refreshSum(t.dataset.k);
+    else if (t.dataset.cut != null) { const x = c.cutoffs[Number(t.dataset.cut)], td = v.querySelector(`[data-cuttot="${t.dataset.cut}"]`); if (td) td.textContent = isNum(x.math) || isNum(x.sci) ? f1((x.math || 0) + (x.sci || 0)) : "-"; }
   };
   v.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
