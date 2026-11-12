@@ -132,6 +132,8 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .warnTxt{color:#fbbf24;font-weight:600}
 .savest{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);white-space:nowrap}
 .savest.ok{color:#5eead4;border-color:rgba(94,234,212,.4)}.savest.saving{color:#fbbf24;border-color:rgba(251,191,36,.45)}
+.viewers{font-size:12.5px;color:var(--sub);white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis}.viewers b{color:#86efac;font-weight:600}
+.pres{font-size:12px;white-space:nowrap}.pres.on{color:#86efac}.pres.bg{color:var(--muted)}
 .savest.fail{color:#fca5a5;border-color:rgba(248,113,113,.55);cursor:pointer}
 .histbox{margin-top:14px}.histbox h4{margin:0 0 6px;font-size:14px}.histbox table td,.histbox table th{font-size:12.5px}
 .combo{position:relative;display:inline-block}
@@ -285,6 +287,7 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
         <button class="tab" data-t="users" id="tabUsers">사용자 승인 및 로그기록</button>
       </div>
       <div class="grow"></div>
+      <span id="viewers" class="viewers hidden"></span>
       <span id="saveState" class="savest hidden"></span>
       <button class="primary" id="btnSave">시험 설정 저장</button>
     </header>
@@ -303,7 +306,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let token = sessionStorage.getItem("mock_token") || "";
 const S = { user: null, exams: [], year: null, exam: null, backup: null, tab: "input", dirty: false, center: "", rankBy: "conv", stu: -1,
-  ops: [], inflight: false, srv: new Map(), hist: [], base: null };
+  ops: [], inflight: false, srv: new Map(), hist: [], base: null, opLog: [], opSeq: 0 };
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 const AREA_MAP = { 기: "기하", 조: "조합", 대: "대수", 물: "물리", 화: "화학", 생: "생명과학", 지: "지구과학" };
 const DEF_CUTS = ["서울, 경기, KSA", "인천, 대구, 대전", "광주, 세종"];
@@ -478,6 +481,7 @@ async function startApp() {
   const last = Number(sessionStorage.getItem("mock_exam") || 0);
   if (last && S.exams.some((e) => e.id === last)) await openExam(last, true);
   else render();
+  ping();
 }
 function curYearDefault() { const d = new Date(); return d.getFullYear() + 1; }
 async function loadList() {
@@ -517,7 +521,7 @@ async function openExam(id, quiet) {
   try {
     const d = await api("examGet", { id });
     S.ops = []; setExamFromServer(d); S.year = S.exam.year; S.stu = -1;
-    sessionStorage.setItem("mock_exam", id);
+    sessionStorage.setItem("mock_exam", id); setTimeout(ping, 0);
     setDirty(false);
     $("#selYear").value = S.year; renderSide(); render();
   } catch (e) { toast(e.message); } finally { busy(); }
@@ -566,7 +570,8 @@ function setSaveState(st, msg) {
 }
 $("#saveState").onclick = () => { if ($("#saveState").classList.contains("fail")) flush(); };
 let flushTimer = null;
-function queueOps(ops) { if (!ops.length) return; S.ops.push(...ops); setSaveState("saving"); clearTimeout(flushTimer); flushTimer = setTimeout(flush, 250); }
+function queueOps(ops) { if (!ops.length) return; S.ops.push(...ops);
+  const now = Date.now(); S.opLog = S.opLog.filter((x) => now - x.t < 120000); ops.forEach((op) => S.opLog.push({ q: ++S.opSeq, op, t: now })); /* 불러오는 동안 저장한 칸을 지키기 위한 기록 */ setSaveState("saving"); clearTimeout(flushTimer); flushTimer = setTimeout(flush, 250); }
 async function flush() {
   if (S.inflight || !S.ops.length || !S.exam) return;
   S.inflight = true; const batch = S.ops.splice(0), exId = S.exam.id;
@@ -579,7 +584,7 @@ async function flush() {
     if (S.ops.length) flush(); else setSaveState("ok");
   } catch (e) {
     S.inflight = false;
-    if (e instanceof TypeError || /fetch|network|시간/i.test(e.message)) { S.ops.unshift(...batch); setSaveState("fail"); setTimeout(flush, 5000); return; }
+    if (e instanceof TypeError || /fetch|network|시간|응답을 읽지/i.test(e.message)) { S.ops.unshift(...batch); setSaveState("fail"); setTimeout(flush, 5000); return; }
     // 서버가 거절한 입력(동명이인, 만점 초과 등): 알리고 서버 내용으로 다시 맞춤
     setSaveState("ok"); await confirmBox("⚠ " + e.message + "\n\n입력한 칸은 저장되지 않았습니다. 최신 내용으로 다시 불러옵니다.", "확인", "");
     await reloadExam();
@@ -617,11 +622,28 @@ async function commitCell(r, c, silent) {
 // 다른 사람이 입력한 내용 자동 반영 (5초마다 변경 번호만 확인)
 async function reloadExam() {
   if (!S.exam) return;
-  const id = S.exam.id, d = await api("examGet", { id });
+  const id = S.exam.id, q0 = S.opSeq, d = await api("examGet", { id });
   if (S.exam?.id !== id) return;
+  // 받아오는 사이에 내가 친 칸은 받아온(옛) 값으로 덮지 않음
+  // ① 아직 저장 전인 칸(화면 값 ≠ 서버 값)  ② 받아오는 사이에 저장한 칸
+  const old = S.exam, oldSrv = S.srv, unsaved = [];
+  old.students.forEach((st) => { const sv = oldSrv.get(st.id); if (!sv) return;
+    ["name", "center"].forEach((f) => { if (st[f] !== sv[f]) unsaved.push([st.id, f, null, st[f]]); });
+    ["m", "s"].forEach((f) => st[f].forEach((v, i) => { if ((v ?? null) !== (sv[f]?.[i] ?? null)) unsaved.push([st.id, f, i, v]); })); });
+  const later = S.opLog.filter((x) => x.q > q0).map((x) => x.op);
   const ae = document.activeElement, focus = ae?.dataset?.c != null && ae.closest("#grid") ? { sid: S.exam.students[Number(ae.closest("tr").dataset.r)]?.id, c: ae.dataset.c, a: ae.selectionStart, b: ae.selectionEnd } : null;
   const gw = $("#gridWrap"), sc = gw ? [gw.scrollTop, gw.scrollLeft] : null, wy = window.scrollY;
   setExamFromServer(d, true);
+  { const E = S.exam, find = (sid) => E.students.find((x) => x.id === sid);
+    for (const o of later) {
+      if (o.t === "add") { if (!find(o.sid)) { const loc = old.students.find((x) => x.id === o.sid); if (loc) E.students.push(loc); } const st = find(o.sid); if (st) S.srv.set(o.sid, JSON.parse(JSON.stringify(st))); }
+      else if (o.t === "del") { const i = E.students.findIndex((x) => x.id === o.sid); if (i >= 0) E.students.splice(i, 1); S.srv.delete(o.sid); }
+      else if (o.t === "set") { const st = find(o.sid), sv = S.srv.get(o.sid); if (!st) continue;
+        if (o.f === "m" || o.f === "s") { if (o.i < st[o.f].length) { st[o.f][o.i] = o.v; if (sv) sv[o.f][o.i] = o.v; } } else { st[o.f] = o.v; if (sv) sv[o.f] = o.v; } }
+    }
+    for (const [sid, f, i, v] of unsaved) { const st = find(sid); if (!st) continue; if (i == null) st[f] = v; else if (i < st[f].length) st[f][i] = v; }
+    if (later.length) S.exam.revs = { ...S.exam.revs, rev: -1 }; // 받아온 내용이 내 저장보다 옛것일 수 있으니 곧 한 번 더 불러옴
+  }
   const ex = S.exams.find((x) => x.id === id); if (ex) { ex.n = S.exam.students.filter((x) => x.name).length; renderSide(); }
   if (S.tab === "config" && S.dirty) return;
   if (S.tab === "report" || S.tab === "trend") { if (S.tab === "trend") TREND.cache = {}; return render(); }
@@ -629,6 +651,17 @@ async function reloadExam() {
   const gw2 = $("#gridWrap"); if (gw2 && sc) { gw2.scrollTop = sc[0]; gw2.scrollLeft = sc[1]; } window.scrollTo(0, wy);
   if (focus) { const r = S.exam.students.findIndex((x) => x.id === focus.sid); const t = r >= 0 && cellRef(r, focus.c); if (t) { t.focus(); try { t.setSelectionRange(focus.a, focus.b); } catch { /* 무시 */ } } }
 }
+// 접속 확인: 15초마다(화면을 다시 볼 때는 바로) 서버에 알림 → 사용자 탭의 '접속 중', 같은 시험을 보는 사람 표시
+async function ping() {
+  if (!token || !S.user) return;
+  try { const r = await api("ping", { exam: S.exam?.id ?? null, vis: !document.hidden });
+    const el = $("#viewers"), v = r.viewers || [];
+    el.innerHTML = v.length ? `함께 보는 중 · <b>${v.map(esc).join(", ")}</b>` : ""; el.title = v.join(", ");
+    el.classList.toggle("hidden", !v.length || !S.exam);
+  } catch { /* 다음에 다시 */ }
+}
+setInterval(ping, 15000);
+document.addEventListener("visibilitychange", ping);
 setInterval(async () => {
   if (!S.exam || !token || S.dirty || S.ops.length || S.inflight || document.hidden || $(".modal") || FS.sel) return;
   const ae = document.activeElement;
@@ -874,7 +907,8 @@ function onGridInput(e) {
   const inp = e.target; if (!inp.dataset.c) return;
   const r = Number(inp.closest("tr").dataset.r), c = Number(inp.dataset.c);
   setCell(r, c, inp.value);
-  if (c >= 2) { inp.dataset.chk = "1"; clearTimeout(inp._t); inp._t = setTimeout(async () => { const raw = inp.value.trim(), n = Number(raw), { it } = itemOf(c); if (raw === "" || (Number.isFinite(n) && n >= 0 && n <= it.max + 1e-9)) queueOps(await commitCell(r, c, true)); }, 1200); }
+  if (c >= 2) { inp.dataset.chk = "1"; clearTimeout(inp._t); const sid = S.exam.students[r]?.id;
+    inp._t = setTimeout(async () => { const rr = S.exam.students.findIndex((x) => x.id === sid); if (rr < 0) return; const raw = (cellRef(rr, c) || inp).value.trim(), n = Number(raw), { it } = itemOf(c); if (raw === "" || (Number.isFinite(n) && n >= 0 && n <= it.max + 1e-9)) queueOps(await commitCell(rr, c, true)); }, 1200); }
   refreshRow(r);
   if (c <= 1) refreshDup();
   refreshStats();
@@ -1617,13 +1651,14 @@ async function viewUsers(v) {
   const st = { approved: ["승인", "var(--ok)"], pending: ["승인 대기", "var(--warn)"], blocked: ["차단", "var(--bad)"] };
   const dt = (x) => (x ? new Date(x).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "-");
   const pend = users.filter((u) => u.status === "pending").length;
-  v.innerHTML = `<div class="grid2"><div class="card" style="grid-column:1/-1"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">사용자 승인 명단</h3>${pend ? `<span class="pill" style="color:var(--warn)">승인 대기 ${pend}명</span>` : ""}<div class="grow"></div></div>
+  v.innerHTML = `<div class="grid2"><div class="card" style="grid-column:1/-1"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">사용자 승인 명단</h3>${pend ? `<span class="pill" style="color:var(--warn)">승인 대기 ${pend}명</span>` : ""}<span class="pres on">접속 중 ${users.filter((u) => u.presence === "on" || u.email === S.user.email).length}명</span><div class="grow"></div><button class="small" id="uRef">접속 새로고침</button></div>
     <p class="hint" style="margin-bottom:12px">승인된 구글 계정만 사이트에 들어올 수 있습니다. 처음 로그인한 사람은 '승인 대기'로 자동 등록됩니다. 승인을 취소하거나 차단하면 즉시 접속이 끊깁니다.</p>
     <div class="row" style="margin-bottom:14px"><input id="uEmail" placeholder="추가할 구글 이메일" style="width:260px"><input id="uName" placeholder="이름(선택)" style="width:140px">
       <select id="uRole"><option value="member">사용자</option><option value="admin">관리자</option></select><button class="primary small" id="uAdd">승인 추가</button></div>
-    <table class="v"><thead><tr><th>이메일</th><th>이름</th><th>권한</th><th>상태</th><th>최근 로그인</th><th>등록</th><th></th></tr></thead><tbody>
+    <table class="v"><thead><tr><th>이메일</th><th>이름</th><th>권한</th><th>상태</th><th>접속</th><th>최근 로그인</th><th>등록</th><th></th></tr></thead><tbody>
     ${users.map((u) => `<tr><td class="l">${esc(u.email)}${u.email === S.user.email ? ' <span class="muted">(나)</span>' : ""}</td><td><input class="uname" data-u="${esc(u.email)}" value="${esc(u.name)}" placeholder="이름 입력" style="width:130px;text-align:center;padding:5px 8px"></td><td>${u.role === "admin" ? `<b style="color:var(--gold)">관리자</b>` : "사용자"}</td>
-      <td><span class="pill" style="color:${st[u.status][1]}">${st[u.status][0]}</span></td><td class="muted">${dt(u.last_login)}</td><td class="muted">${dt(u.created_at)}</td>
+      <td><span class="pill" style="color:${st[u.status][1]}">${st[u.status][0]}</span></td>
+      <td>${u.email === S.user.email ? `<span class="pres on">● 접속 중(나)</span>` : u.presence === "on" ? `<span class="pres on" title="지금 사이트 화면을 보고 있음">● 접속 중${u.seen_label ? " · " + esc(u.seen_label) : ""}</span>` : u.presence === "bg" ? `<span class="pres bg" title="사이트 창은 열려 있지만 다른 화면을 보고 있음">○ 창 열림${u.seen_label ? " · " + esc(u.seen_label) : ""}</span>` : `<span class="muted">-</span>`}</td><td class="muted">${dt(u.last_login)}</td><td class="muted">${dt(u.created_at)}</td>
       <td style="text-align:right">${u.email === S.user.email ? "" : `
         ${u.status !== "approved" ? `<button class="small primary" data-u="${esc(u.email)}" data-act="approve">승인</button>` : `<button class="small" data-u="${esc(u.email)}" data-act="block">차단</button>`}
         <button class="small" data-u="${esc(u.email)}" data-act="role">${u.role === "admin" ? "사용자로" : "관리자로"}</button>
@@ -1637,6 +1672,7 @@ async function viewUsers(v) {
   const save = async (u, patch) => { try { await api("userSave", { email: u.email, name: u.name, role: u.role, status: u.status, ...patch }); viewUsers(v); toast("저장했습니다."); } catch (e) { toast(e.message, 4000); } };
   v.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
+    if (t.id === "uRef") return viewUsers(v);
     if (t.id === "uAdd") {
       const email = $("#uEmail").value.trim().toLowerCase();
       if (!email) return toast("이메일을 입력하세요.");
