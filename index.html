@@ -568,7 +568,8 @@ async function flush() {
   setSaveState("saving");
   try {
     const d = await api("cellSet", { id: exId, ops: batch });
-    if (S.exam?.id === exId) { S.exam.revs = d.revs || S.exam.revs; const ex = S.exams.find((x) => x.id === exId); if (ex && d.n != null) { ex.n = d.n; renderSide(); } }
+    // 내 저장만 반영된 경우(+1)에만 번호를 올림. 그사이 다른 사람이 저장했으면 번호를 그대로 둬서 곧 최신 내용을 불러오게 함
+    if (S.exam?.id === exId) { const o = S.exam.revs?.rev ?? 0, nr = d.revs?.rev ?? o; if (nr === o + 1 || nr === o) S.exam.revs = { ...d.revs }; else S.exam.revs = { ...d.revs, rev: -1 }; const ex = S.exams.find((x) => x.id === exId); if (ex && d.n != null) { ex.n = d.n; renderSide(); } }
     S.inflight = false;
     if (S.ops.length) flush(); else setSaveState("ok");
   } catch (e) {
