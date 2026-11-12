@@ -110,6 +110,11 @@ table.g td.over input{background:rgba(248,113,113,.3)}
 table.g td.auto{background:rgba(69,212,200,.05);padding:0 7px;color:#bff5ef;font-variant-numeric:tabular-nums}
 table.g th.m{color:#c4b5fd}table.g th.s{color:#5eead4}
 table.g tr.avg td{color:var(--gold);background:rgba(230,194,122,.05)}
+/* 선택한 칸의 학생 줄·문항 열 강조 */
+table.g tr.xr td,table.g td.xc{background:rgba(230,194,122,.08)}
+table.g tr.xr td.stk{background:#2d2c30;color:var(--gold)!important}
+table.g tr.xr td.nm input{color:var(--gold);font-weight:700}
+table.g thead th.xh{background:#2d2c30!important;color:var(--gold)!important;font-weight:700}
 table.v{border-collapse:collapse;font-size:13px;width:100%}
 table.v th,table.v td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:center;white-space:nowrap}
 table.v thead th{position:sticky;top:0;background:#141a2b;color:var(--sub);font-weight:600;z-index:2}
@@ -800,12 +805,12 @@ function viewInput(v) {
   const mA = showM() ? c.math.areas : [], sA = showS() ? c.sci.areas : [];
   const span = autoSpan();
   const head = `<thead>
-   <tr><th class="stk" style="left:0" rowspan="4">NO</th><th class="stk" style="left:38px" rowspan="4">이름</th><th class="stk" style="left:138px" rowspan="4">센터</th><th>문항</th>
-     ${mi.map((it) => `<th class="m">${esc(it.no)}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.no)}</th>`).join("")}
+   <tr><th class="stk" style="left:0" rowspan="4">NO</th><th class="stk" style="left:38px" rowspan="4" data-hc="0">이름</th><th class="stk" style="left:138px" rowspan="4" data-hc="1">센터</th><th>문항</th>
+     ${mi.map((it, i) => `<th class="m" data-hc="${2 + i}">${esc(it.no)}</th>`).join("")}${si.map((it, i) => `<th class="s" data-hc="${2 + c.math.items.length + i}">${esc(it.no)}</th>`).join("")}
      ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}${showM() ? `<th class="m">수학 계</th>` : ""}${sA.map((a) => `<th class="s">${esc(a)}</th>`).join("")}${showS() ? `<th class="s">과학 계</th>` : ""}<th>총계</th></tr>
-   <tr><th>영역</th>${mi.map((it) => `<th class="m">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it) => `<th class="s">${esc(it.area.slice(0, 1))}</th>`).join("")}${autoKeys().map(() => `<th></th>`).join("")}</tr>
-   <tr><th>만점</th>${mi.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${si.map((it) => `<th>${fmax(it.max)}</th>`).join("")}${autoKeys().map((key) => `<th id="mx_${key}"></th>`).join("")}</tr>
-   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}"></th>`).join("")}${autoKeys().map((key) => `<th id="av_${key}"></th>`).join("")}</tr></thead>`;
+   <tr><th>영역</th>${mi.map((it, i) => `<th class="m" data-hc="${2 + i}">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it, i) => `<th class="s" data-hc="${2 + c.math.items.length + i}">${esc(it.area.slice(0, 1))}</th>`).join("")}${autoKeys().map(() => `<th></th>`).join("")}</tr>
+   <tr><th>만점</th>${mi.map((it, i) => `<th data-hc="${2 + i}">${fmax(it.max)}</th>`).join("")}${si.map((it, i) => `<th data-hc="${2 + c.math.items.length + i}">${fmax(it.max)}</th>`).join("")}${autoKeys().map((key) => `<th id="mx_${key}"></th>`).join("")}</tr>
+   <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}" data-hc="${2 + i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}" data-hc="${2 + c.math.items.length + i}"></th>`).join("")}${autoKeys().map((key) => `<th id="av_${key}"></th>`).join("")}</tr></thead>`;
   const body = ex.students.map((s, r) => rowHtml(s, r)).join("");
   v.innerHTML = `<div class="row noprint" style="margin-bottom:12px;flex-wrap:nowrap">
       <div class="kpis"><div class="kpi"><div class="k">입력 학생</div><div class="v" id="kN"></div></div><div class="kpi"><div class="k">센터</div><div class="v" id="kC"></div></div></div>
@@ -819,8 +824,18 @@ function viewInput(v) {
   grid.addEventListener("keydown", onGridKey);
   grid.addEventListener("paste", onGridPaste);
   grid.addEventListener("focusout", onGridChange);
+  grid.addEventListener("focusin", (e) => hlCell(e.target));
+  grid.addEventListener("focusout", (e) => { if (!grid.contains(e.relatedTarget)) hlCell(null); });
   $$("[data-add]", v).forEach((b) => (b.onclick = () => { for (let i = 0; i < Number(b.dataset.add); i++) ex.students.push(blankStu()); viewInput(v); }));
   $("#inMode").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.inMode = b.dataset.mode; setPref("inMode", S.inMode); viewInput(v); };
+}
+// 선택한 칸 → 그 학생 줄과 문항 열(머리글 포함) 강조
+function hlCell(t) {
+  $$("#grid .xr, #grid .xc, #grid .xh").forEach((x) => x.classList.remove("xr", "xc", "xh"));
+  if (!t?.matches?.("#grid tbody input[data-c]")) return;
+  const c = t.dataset.c; t.closest("tr").classList.add("xr");
+  $$(`#grid thead th[data-hc="${c}"]`).forEach((x) => x.classList.add("xh"));
+  if (Number(c) >= 2) $$(`#grid tbody input[data-c="${c}"]`).forEach((x) => x.parentElement.classList.add("xc"));
 }
 function blankStu() { const c = S.exam.config; return { id: newId(), name: "", center: "", m: c.math.items.map(() => null), s: c.sci.items.map(() => null) }; }
 function rowHtml(s, r) {
