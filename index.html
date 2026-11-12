@@ -345,6 +345,20 @@ function confirmBox(msg, okText = "확인", cancelText = "취소") {
     setTimeout(() => m.querySelector('[data-x="1"]').focus(), 30);
   });
 }
+// 정해진 단어를 직접 입력해야만 [확인]이 눌리는 확인 창 (되돌리기처럼 되돌리기 어려운 작업용)
+function typeConfirm(msg, word, okText = "확인") {
+  return new Promise((res) => {
+    const m = modal(`<div style="white-space:pre-line;line-height:1.7">${esc(msg)}</div>
+      <div style="margin-top:14px" class="sub">계속하려면 아래 칸에 <b style="color:var(--gold)">${esc(word)}</b>를 입력하세요.</div>
+      <input id="tcIn" autocomplete="off" placeholder="${esc(word)}" style="width:100%;margin-top:8px">
+      <div class="row" style="justify-content:flex-end;margin-top:18px"><button data-x="0">취소</button><button class="primary" data-x="1" disabled>${esc(okText)}</button></div>`);
+    const inp = m.querySelector("#tcIn"), ok = m.querySelector('[data-x="1"]');
+    inp.addEventListener("input", () => (ok.disabled = inp.value.trim() !== word));
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter" && !ok.disabled) { m.remove(); res(true); } });
+    m.addEventListener("click", (e) => { const x = e.target.dataset?.x; if (x == null || (x === "1" && ok.disabled)) return; m.remove(); res(x === "1"); });
+    setTimeout(() => inp.focus(), 30);
+  });
+}
 function loadScript(src) {
   return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("라이브러리를 불러오지 못했습니다: " + src)); document.head.appendChild(s); });
 }
@@ -754,8 +768,8 @@ $("#btnGuide").onclick = () => {
       "석차·백분위 그래프는 위쪽일수록 좋은 성적입니다."])}
     ${sec("7. 시험 목록·가져오기", [
       "모든 시험과 최근 수정 시각·수정자를 봅니다. [열기]로 바로 엽니다.",
-      "잘못 입력했을 때는 아래 <b>수학/과학 저장 기록</b>(과목별 최근 10개)에서 원하는 시점을 골라 <b>[이 시점으로 되돌리기]</b>를 누릅니다. 그 과목만 바뀌고 다른 과목은 그대로입니다.",
-      "기존 구글 시트는 [파일 → 다운로드 → Microsoft Excel(.xlsx)]로 받아 여기서 가져옵니다. 배점을 넘는 점수는 만점으로 맞춰 가져옵니다.",
+      "잘못 입력했을 때는 오른쪽 <b>수학/과학 저장 기록</b>(과목별 최근 10개)에서 원하는 시점을 골라 <b>[이 시점으로 되돌리기]</b>를 누르고, 확인 창에 <b>되돌리기</b>를 입력합니다. 그 과목만 바뀌고 다른 과목은 그대로입니다.",
+      "기존 구글 시트 가져오기는 <b>관리자만</b> 할 수 있습니다(맨 아래). [파일 → 다운로드 → Microsoft Excel(.xlsx)]로 받아 가져오며, 배점을 넘는 점수는 만점으로 맞춰 가져옵니다.",
       "시험 삭제는 관리자만 할 수 있습니다."])}
     ${sec("8. 사용자 승인 및 로그기록 (관리자)", [
       "새로 로그인한 사람은 '승인 대기'로 올라옵니다. 관리자가 승인해야 들어올 수 있습니다.",
@@ -812,7 +826,7 @@ function render() {
   if (S.tab === "manage") return viewManage(v);
   if (S.tab === "users") return viewUsers(v);
   if (S.tab === "trend") return viewTrend(v);
-  if (!ex) { v.innerHTML = `<div class="empty"><div style="font-size:14px;font-weight:700;color:var(--text)">왼쪽 사이드바에서 학년도와 시험(차수)을 고르세요.</div><div style="font-size:13px;font-weight:400;margin-top:4px">처음이면 [+ 새 시험 만들기] 또는 [시험 목록·가져오기]에서 기존 구글 시트를 가져오세요.</div></div>`; return; }
+  if (!ex) { v.innerHTML = `<div class="empty"><div style="font-size:14px;font-weight:700;color:var(--text)">왼쪽 사이드바에서 학년도와 시험(차수)을 고르세요.</div><div style="font-size:13px;font-weight:400;margin-top:4px">처음이면 [+ 새 시험 만들기]로 시험을 만드세요${S.user?.role === "admin" ? " (기존 구글 시트는 [시험 목록·가져오기]에서 가져옵니다)" : ""}.</div></div>`; return; }
   ({ input: viewInput, total: viewTotal, rank: viewRank, report: viewReport, config: viewConfig })[S.tab](v);
 }
 
@@ -1366,7 +1380,7 @@ function personBind(all, list, curV, centerLabel, go) {
 function histHtml() {
   const part = (p, label) => { const rows = S.hist.filter((h) => h.part === p);
     return `<div class="histbox"><h4>${label} 저장 기록 <span class="muted" style="font-weight:400;font-size:12px">최근 ${rows.length}개 · 그 시점 직전 상태</span></h4>${rows.length ? `<table class="v"><thead><tr><th>저장 시각</th><th>저장한 사람</th><th>${label} 입력</th><th>학생</th><th></th></tr></thead><tbody>${rows.map((h) => `<tr><td>${new Date(h.saved_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "medium" })}</td><td>${esc(h.name || h.saved_by.split("@")[0])}</td><td>${h.filled}명</td><td>${h.n}명</td><td><button class="small" data-hist="${h.id}">이 시점으로 되돌리기</button></td></tr>`).join("")}</tbody></table>` : `<div class="hint">아직 기록이 없습니다.</div>`}</div>`; };
-  return `<div style="margin-top:18px;border-top:1px solid var(--line2);padding-top:12px"><h3 style="margin:0 0 4px">${S.exam.year}학년도 ${S.exam.round}차 저장 기록</h3><p class="hint">입력하는 사람이 바뀌거나 10분이 지나면 바로 전 상태가 하나씩 남습니다(과목별 최근 10개). 되돌리면 그 과목만 바뀌고 다른 과목은 그대로입니다.</p>${part("math", "수학")}${part("sci", "과학")}</div>`;
+  return `<h3 style="margin:0 0 4px">${S.exam.year}학년도 ${S.exam.round}차 저장 기록</h3><p class="hint">입력하는 사람이 바뀌거나 10분이 지나면 바로 전 상태가 하나씩 남습니다(과목별 최근 10개). 되돌리면 그 과목만 바뀌고 다른 과목은 그대로입니다. 되돌리려면 확인 창에 '되돌리기'를 입력해야 합니다.</p>${part("math", "수학")}${part("sci", "과학")}`;
 }
 
 // 이름 검색 상자: 브라우저 기본 목록 대신 화면 안에 맞춘 어두운 목록 (입력한 글자가 들어간 이름만)
@@ -1719,13 +1733,13 @@ function viewManage(v) {
     ${S.exams.length ? `<table class="v"><thead><tr><th>학년도</th><th>차수</th><th>시험 이름</th><th>응시</th><th>수정</th><th>수정자</th><th></th></tr></thead><tbody>
      ${ys.map((y, yi) => S.exams.filter((e) => e.year === y).sort((a, b) => a.round - b.round).map((e, ei) => `<tr class="${yi > 0 && ei === 0 ? "ygap" : ""}"><td>${ei === 0 ? `<b>${e.year}</b>` : `<span class="muted">${e.year}</span>`}</td><td><b>${e.round}차</b></td><td class="l">${esc(e.title || "")}</td><td>${e.n}명</td><td class="muted">${new Date(e.updated_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td><td class="muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc((e.updated_by || "").split("@")[0])}</td>
        <td><button class="small" data-open="${e.id}">열기</button> ${S.user?.role === "admin" ? `<button class="small danger" data-delx="${e.id}">삭제</button>` : ""}</td></tr>`).join("")).join("")}</tbody></table>` : `<div class="hint">아직 시험이 없습니다.</div>`}
-    ${S.exam?.id ? histHtml() : ""}
    </div>
-   <div class="card"><h3>기존 구글 시트(성적입력 툴) 가져오기</h3>
+   <div class="card">${S.exam?.id ? histHtml() : `<h3>저장 기록</h3><div class="hint">왼쪽에서 시험을 고르면 그 시험의 수학·과학 저장 기록이 보입니다.</div>`}</div>
+   ${S.user?.role !== "admin" ? "" : `<div class="card" style="grid-column:1/-1"><h3>기존 구글 시트(성적입력 툴) 가져오기 <span class="muted" style="font-size:12px;font-weight:400">관리자 전용</span></h3>
      <p class="hint">구글 시트에서 [파일 → 다운로드 → Microsoft Excel(.xlsx)]로 받은 파일을 여러 개 한꺼번에 고르세요. 학년도·차수·문항 구성·배점·학생 점수·커트라인을 자동으로 읽습니다.</p>
      <input type="file" id="impF" accept=".xlsx,.xls" multiple style="margin-top:10px;width:100%">
      <div id="impList" style="margin-top:12px"></div>
-   </div></div>`;
+   </div>`}</div>`;
   v.onclick = async (e) => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.open) { await openExam(Number(t.dataset.open)); S.tab = "input"; render(); }
@@ -1736,12 +1750,12 @@ function viewManage(v) {
     } else if (t.dataset.hist) {
       const h = S.hist.find((x) => x.id === Number(t.dataset.hist)); if (!h) return;
       const pk = h.part === "math" ? "수학" : "과학";
-      if (!(await confirmBox(`${S.exam.year}학년도 ${S.exam.round}차 ${pk}를 ${new Date(h.saved_at).toLocaleString("ko-KR")} 저장본(${pk} 입력 ${h.filled}명)으로 되돌릴까요?\n${pk === "수학" ? "과학" : "수학"} 점수는 그대로 둡니다. 지금 내용도 저장 기록에 남으니 다시 되돌릴 수 있습니다.`, "되돌리기"))) return;
+      if (!(await typeConfirm(`${S.exam.year}학년도 ${S.exam.round}차 ${pk}를 ${new Date(h.saved_at).toLocaleString("ko-KR")} 저장본(${pk} 입력 ${h.filled}명)으로 되돌릴까요?\n${pk === "수학" ? "과학" : "수학"} 점수는 그대로 둡니다. 지금 내용도 저장 기록에 남으니 다시 되돌릴 수 있습니다.`, "되돌리기", "되돌리기"))) return;
       try { await flushAll(); await api("histRestore", { hid: h.id }); await loadList(); await reloadExam(); render(); toast("되돌렸습니다."); } catch (err) { toast(err.message, 4000); }
-    } else if (t.id === "impGo") runImport();
+    } else if (t.id === "impGo" && S.user?.role === "admin") runImport();
     else if (t.id === "impClr") { pending = []; renderImp(); }
   };
-  $("#impF").onchange = async (e) => {
+  if ($("#impF")) $("#impF").onchange = async (e) => {
     await needXLSX();
     for (const f of e.target.files) await addImportBuf(f.name, await f.arrayBuffer());
     e.target.value = "";
