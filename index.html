@@ -887,7 +887,7 @@ function viewInput(v) {
   const head = `<thead>
    <tr><th class="stk" style="left:0" rowspan="4">NO</th><th class="stk" style="left:38px" rowspan="4" data-hc="0">이름</th><th class="stk" style="left:118px" rowspan="4" data-hc="1">센터</th><th>문항</th>
      ${mi.map((it, i) => `<th class="m" data-hc="${2 + i}">${esc(it.no)}</th>`).join("")}${si.map((it, i) => `<th class="s" data-hc="${2 + c.math.items.length + i}">${esc(it.no)}</th>`).join("")}
-     ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}${showM() ? `<th class="m">수학 계</th>` : ""}${sA.map((a) => `<th class="s">${esc(a)}</th>`).join("")}${showS() ? `<th class="s">과학 계</th>` : ""}<th>총계</th></tr>
+     ${mA.map((a) => `<th class="m">${esc(a)}</th>`).join("")}${showM() ? `<th class="m">수학 계</th>` : ""}${sA.map((a) => `<th class="s" title="${esc(a)}">${esc(a.replace(/^(생명|지구)과학$/, "$1"))}</th>`).join("")}${showS() ? `<th class="s">과학 계</th>` : ""}<th>총계</th></tr>
    <tr><th>영역</th>${mi.map((it, i) => `<th class="m" data-hc="${2 + i}">${esc(it.area.slice(0, 1))}</th>`).join("")}${si.map((it, i) => `<th class="s" data-hc="${2 + c.math.items.length + i}">${esc(it.area.slice(0, 1))}</th>`).join("")}${autoKeys().map(() => `<th></th>`).join("")}</tr>
    <tr><th>만점</th>${mi.map((it, i) => `<th data-hc="${2 + i}">${fmax(it.max)}</th>`).join("")}${si.map((it, i) => `<th data-hc="${2 + c.math.items.length + i}">${fmax(it.max)}</th>`).join("")}${autoKeys().map((key) => `<th id="mx_${key}"></th>`).join("")}</tr>
    <tr class="avg"><th>평균</th>${mi.map((_, i) => `<th id="am${i}" data-hc="${2 + i}"></th>`).join("")}${si.map((_, i) => `<th id="as${i}" data-hc="${2 + c.math.items.length + i}"></th>`).join("")}${autoKeys().map((key) => `<th id="av_${key}"></th>`).join("")}</tr></thead>`;
