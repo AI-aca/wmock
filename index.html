@@ -661,10 +661,42 @@ async function reloadExam() {
   }
   const ex = S.exams.find((x) => x.id === id); if (ex) { ex.n = S.exam.students.filter((x) => x.name).length; renderSide(); }
   if (S.tab === "config" && S.dirty) return;
-  if (S.tab === "report" || S.tab === "trend") { if (S.tab === "trend") TREND.cache = {}; return render(); }
+  // 점수와 관계없는 화면(사용자 탭)은 다시 그리지 않음 → 이름 고치는 중에 저장되는 일 없음
+  if (S.tab === "users") return;
+  // 성적 추이는 자동으로 다시 그리지 않고 안내만 (원할 때 [새로 고침])
+  if (S.tab === "trend") return trendNotice();
+  if (S.tab !== "input" && S.tab !== "config") {
+    // 보기 화면(종합성적·순위·성적표·시험 목록): 검색칸 등에 입력 중이면 끝날 때까지 미룸, 다시 그려도 스크롤 유지
+    const a = document.activeElement;
+    if (a && $("#view").contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName)) {
+      if (!S.pendRender) { S.pendRender = true; const tab = S.tab; a.addEventListener("blur", () => setTimeout(() => { if (S.pendRender && S.tab === tab) softRender(); S.pendRender = false; }, 0), { once: true }); }
+      return;
+    }
+    return softRender();
+  }
   render();
   const gw2 = $("#gridWrap"); if (gw2 && sc) { gw2.scrollTop = sc[0]; gw2.scrollLeft = sc[1]; } window.scrollTo(0, wy);
   if (focus) { const r = S.exam.students.findIndex((x) => x.id === focus.sid); const t = r >= 0 && cellRef(r, focus.c); if (t) { t.focus(); try { t.setSelectionRange(focus.a, focus.b); } catch { /* 무시 */ } } }
+}
+// 다시 그려도 창·표 스크롤 위치 유지
+function softRender() {
+  S.pendRender = false;
+  const wy = window.scrollY, tw = $$("#view .tw").map((x) => [x.scrollTop, x.scrollLeft]);
+  render();
+  const put = () => { $$("#view .tw").forEach((x, i) => { if (tw[i]) { x.scrollTop = tw[i][0]; x.scrollLeft = tw[i][1]; } }); window.scrollTo(0, wy); };
+  put(); requestAnimationFrame(put); // 드롭다운 모양 바꾸기가 끝난 뒤 한 번 더
+}
+// 성적 추이: 새 입력이 있으면 위에 안내 + [새로 고침] (바뀐 시험만 다시 받아옴)
+function trendNotice() {
+  const v = $("#view"); if (S.tab !== "trend" || !v || $("#trNew")) return;
+  // 화면 오른쪽 아래에 떠 있는 안내(내용을 밀지 않음). 화면을 다시 그리면 함께 사라짐
+  v.insertAdjacentHTML("beforeend", `<div id="trNew" class="dirty">다른 분이 새로 입력한 점수가 있습니다 <button class="small orange" id="trNewBtn">새로 고침</button></div>`);
+  $("#trNewBtn").onclick = async () => {
+    const wy = window.scrollY;
+    try { await loadList(); } catch { /* 목록 실패해도 화면은 다시 그림 */ }
+    await viewTrend($("#view"));
+    const put = () => window.scrollTo(0, wy); put(); requestAnimationFrame(put); setTimeout(put, 300);
+  };
 }
 // 접속 확인: 15초마다(화면을 다시 볼 때는 바로) 서버에 알림 → 사용자 탭의 '접속 중', 같은 시험을 보는 사람 표시
 async function ping() {
@@ -1065,8 +1097,8 @@ function viewConfig(v) {
     </div>
     ${subjCard("math", "수학")}${subjCard("sci", "과학")}</div>`;
   if (keep) {
-    v.querySelectorAll(".tw").forEach((x, i) => { if (keep.tw[i] != null) x.scrollTop = keep.tw[i]; });
-    window.scrollTo(0, keep.wy);
+    const put = () => { v.querySelectorAll(".tw").forEach((x, i) => { if (keep.tw[i] != null) x.scrollTop = keep.tw[i]; }); window.scrollTo(0, keep.wy); };
+    put(); requestAnimationFrame(put);
     const a = keep.ae && v.querySelector(keep.ae); if (a) { a.focus({ preventScroll: true }); try { if (keep.sel != null) a.setSelectionRange(keep.sel, keep.sel); } catch { /* 숫자칸 */ } }
   }
   // 배점·영역 변경 시 전체를 다시 그리지 않고 합계만 갱신
@@ -1663,6 +1695,7 @@ async function viewUsers(v) {
   v.innerHTML = `<div class="empty">불러오는 중…</div>`;
   let users = [];
   try { users = (await api("userList")).users; } catch (e) { v.innerHTML = `<div class="empty warn">${esc(e.message)}</div>`; return; }
+  if (S.tab !== "users") return; // 그사이 다른 탭으로 옮겼으면 그리지 않음
   const st = { approved: ["승인", "var(--ok)"], pending: ["승인 대기", "var(--warn)"], blocked: ["차단", "var(--bad)"] };
   const dt = (x) => (x ? new Date(x).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "-");
   const pend = users.filter((u) => u.status === "pending").length;
@@ -1711,6 +1744,7 @@ async function loadLogs() {
   box.innerHTML = `<h3>로그 기록</h3><div class="hint">불러오는 중…</div>`;
   let logs = [];
   try { logs = (await api("logList")).logs; } catch (e) { box.innerHTML = `<h3>로그 기록</h3><div class="hint">${esc(e.message)}</div>`; return; }
+  if (!box.isConnected) return; // 그사이 화면이 바뀌었으면 무시
   const acts = [...new Set(logs.map((l) => l.action))];
   const dt = (x) => new Date(x).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "medium" });
   const draw = () => {
