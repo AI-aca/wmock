@@ -173,6 +173,7 @@ input.ratio.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .guide h3{margin:0 0 6px;font-size:20px}.guide .gsub{font-size:14.5px;color:var(--sub);line-height:1.7}.guide .gsec{margin-top:18px;padding-top:16px;border-top:1px solid var(--line2)}
 .guide h4{margin:0 0 8px;font-size:16.5px;font-weight:700;color:#5eead4}
 .guide ul{margin:0;padding-left:20px;line-height:1.85;font-size:15px}.guide li b{color:var(--text)}
+.guide li.em{list-style:none;margin:6px 0 6px -20px;padding:8px 12px;border-left:4px solid var(--gold);border-radius:6px;background:rgba(230,194,122,.13)}.guide li.em b{color:var(--gold)}
 .guide .kbd{display:inline-block;padding:0 6px;border:1px solid var(--line2);border-radius:5px;font-size:13px}
 .modal .mbox.wide:has(.guide){width:min(940px,94vw)}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
@@ -773,14 +774,14 @@ $("#btnSave").onclick = save;
 document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); if (S.dirty) save(); else { document.activeElement?.blur?.(); flushAll(); } } });
 
 $("#btnGuide").onclick = () => {
-  const sec = (t, items) => `<div class="gsec"><h4>${t}</h4><ul>${items.map((x) => `<li>${x}</li>`).join("")}</ul></div>`;
+  const sec = (t, items) => `<div class="gsec"><h4>${t}</h4><ul>${items.map((x) => (x[0] === "!" ? `<li class="em">${x.slice(1)}</li>` : `<li>${x}</li>`)).join("")}</ul></div>`;
   const m = modal(`<div class="guide"><h3>사용법 안내</h3><div class="gsub">위쪽 탭 순서대로 쓰면 됩니다. <b>성적 입력은 구글 시트처럼 칸마다 자동 저장</b>되고(오른쪽 위 "✓ 자동 저장됨"), 여러 명이 동시에 입력해도 서로 지우지 않습니다. <b>시험 설정</b>만 [시험 설정 저장]을 눌러야 반영됩니다.</div>
     ${sec("★ 성적표 출력", [
-      "학생 이름을 입력하거나 목록에서 고르고, ◀ ▶로 넘깁니다.",
+      "<b>센터·학년</b>을 고르면 그 학생만 목록에 나오고, <b>[일괄 PDF (ZIP)]도 고른 센터·학년 학생만</b> 만듭니다. 학생 이름을 입력하거나 목록에서 고르고, ◀ ▶로 넘깁니다.",
       "성적표는 <b>2쪽</b>입니다. 1쪽은 영역별·환산 점수·커트라인·그래프, 2쪽은 문항별 상세 점수(만점·평균·개인 점수)입니다.",
       "성적표에는 <b>석차가 나오지 않습니다</b>(백분위는 나옴).",
-      "<b>평균 기본값</b>: 학생마다 <b>자기 학년 평균 + 윗학년 평균</b>이 들어갑니다(중1 → 중1·중2 평균, 중2 → 중2·중3 평균, 중3 → 중3 평균). <b>학년이 없으면 전체 평균</b>입니다. <b>[일괄 PDF (ZIP)]도 학생마다 기본값대로</b> 만들어집니다.",
-      "<b>[전체 평균] [중1 평균]…</b>을 직접 고르면 안내창이 뜨고, 확인하면 고른 평균이 <b>모든 학생에게 똑같이</b> 들어갑니다. <b>[기본값]</b>을 누르거나 화면을 새로 열면 기본값으로 돌아갑니다.",
+      "!<b>평균 기본값</b>: 학생마다 <b>자기 학년 평균 + 윗학년 평균</b>이 들어갑니다(중1 → 중1·중2 평균, 중2 → 중2·중3 평균, 중3 → 중3 평균). <b>학년이 없으면 전체 평균</b>입니다. <b>[일괄 PDF (ZIP)]도 학생마다 기본값대로</b> 만들어집니다.",
+      "!<b>[전체 평균] [중1 평균]…</b>을 직접 고르면 안내창이 뜨고, 확인하면 고른 평균이 <b>모든 학생에게 똑같이</b> 들어갑니다. <b>[기본값]</b>을 누르거나 화면을 새로 열면 기본값으로 돌아갑니다.",
       "이 시험에 입력된 학년만 보이며, <b>응시 10명 미만인 학년은 평균에서 제외</b>합니다(10명부터 가능). 제외되어 남는 평균이 없으면 전체 평균이 들어갑니다.",
       "<b>[인쇄]</b>, <b>[PDF로 저장]</b>(한 명), <b>[일괄 PDF (ZIP)]</b>(고른 센터 또는 전체 학생)를 씁니다.",
       "입력한 점수는 자동 저장되므로 바로 출력해도 됩니다."])}
@@ -1425,10 +1426,10 @@ document.addEventListener("input", (e) => {
 }, true);
 
 // 개인 화면(성적표 출력·학생별 성적 추이) 공통 상단: 이름 검색 / 센터 / 학생 / ◀ ▶
-function personBar(centers, curC, list, curV, right = "") {
+function personBar(centers, curC, list, curV, right = "", gradeSel = "") {
   return `<div class="row noprint pbar" style="margin-bottom:12px">
       <span class="combo"><input id="pQ" autocomplete="off" placeholder="학생 이름 검색 (전체 센터)" style="width:210px"></span>
-      <span class="sub" style="margin-left:4px">센터</span><select id="pC"><option value="">전체 센터</option>${centers.map((c) => `<option ${c === curC ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <select id="pC" title="센터"><option value="">전체 센터</option>${centers.map((c) => `<option ${c === curC ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>${gradeSel}
       <span class="sub" style="margin-left:4px">학생</span><select id="pS" style="min-width:170px">${list.map((o) => `<option value="${esc(o.value)}" ${o.value === curV ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
       <button class="small" id="pPrev">◀</button><button class="small" id="pNext">▶</button>
       <div class="grow"></div>${right}</div>`;
@@ -1678,12 +1679,22 @@ function viewReport(v) {
   const ex = S.exam, k = calc(ex);
   if (!k.N) { v.innerHTML = `<div class="empty warn">입력된 학생이 없습니다.</div>`; return; }
   if (S.stu >= k.N) S.stu = -1;
-  const idx = k.rows.map((_, i) => i).filter((i) => !S.center || k.rows[i].center === S.center);
-  if (S.stu < 0 || !idx.includes(S.stu)) S.stu = idx[0] ?? 0;
+  const gOk = (i) => !S.rG || (S.rG === "none" ? !k.rows[i].grade : k.rows[i].grade === S.rG); // 학년 필터(순위별 정리와 같은 값)
+  const grs = GRADES.filter((g) => k.rows.some((r) => r.grade === g));
+  if (S.rG && S.rG !== "none" && !grs.includes(S.rG)) S.rG = ""; // 이 시험에 없는 학년이면 전체로
+  const idx = k.rows.map((_, i) => i).filter((i) => (!S.center || k.rows[i].center === S.center) && gOk(i));
+  if (S.stu < 0 || !idx.includes(S.stu)) S.stu = idx[0] ?? -1;
+  const gSel = `<select id="pG" title="학년"><option value="">전체 학년</option>${grs.map((g) => `<option ${g === S.rG ? "selected" : ""}>${g}</option>`).join("")}<option value="none" ${S.rG === "none" ? "selected" : ""}>학년 미입력</option></select>`;
+  if (S.stu < 0) { // 고른 센터·학년에 학생이 없음
+    v.innerHTML = `${personBar(centersOf(ex), S.center, [], "", "", gSel)}<div class="empty warn">고른 센터·학년에 해당하는 학생이 없습니다.</div>`;
+    $("#pC").onchange = (e) => { S.center = e.target.value; S.stu = -1; viewReport(v); };
+    $("#pG").onchange = (e) => { S.rG = e.target.value; S.stu = -1; viewReport(v); };
+    $("#pQ").disabled = true; return;
+  }
   const opt = (i) => ({ value: String(i), label: `${k.rows[i].name} (${k.rows[i].center})`, center: k.rows[i].center });
   const allP = k.rows.map((_, i) => opt(i)).sort((a, b) => a.label.localeCompare(b.label, "ko"));
   const listP = idx.map(opt).sort((a, b) => a.label.localeCompare(b.label, "ko")); // 학생 목록은 가나다순(성적 추이와 같음)
-  v.innerHTML = `${personBar(centersOf(ex), S.center, listP, String(S.stu), `<button id="prt">인쇄</button><button class="orange" id="pdf1">PDF로 저장</button><button class="primary" id="zip">일괄 PDF (ZIP)</button>`)}
+  v.innerHTML = `${personBar(centersOf(ex), S.center, listP, String(S.stu), `<button id="prt">인쇄</button><button class="orange" id="pdf1">PDF로 저장</button><button class="primary" id="zip">일괄 PDF (ZIP)</button>`, gSel)}
     <div class="row noprint avgbar"><span class="sub">성적표 평균</span><label class="chip def ${S.avgMode === "default" ? "on" : ""}" title="학생마다 자기 학년 평균 + 윗학년 평균(학년이 없으면 전체 평균)"><input type="checkbox" data-avg="default" ${S.avgMode === "default" ? "checked" : ""}>기본값</label><span class="sep2"></span>${[["all", "전체 평균", k.N], ...GRADES.map((g) => [g, `${g} 평균`, ex.students.filter((s) => s.name && s.grade === g).length])].filter(([key, , n]) => key === "all" || n)
       .map(([key, label, n]) => { const off = key !== "all" && n < GRADE_MIN, on = !off && avgList(ex, k, S.stu).some((a) => a.key === key);
         return `<label class="chip ${on ? "on" : ""} ${off ? "off" : ""}" ${off ? `title="응시 ${GRADE_MIN}명 미만이라 평균에서 제외합니다"` : ""}><input type="checkbox" data-avg="${key}" ${on ? "checked" : ""} ${off ? "disabled" : ""}>${label} <small>${n}명</small></label>`; }).join("")}
@@ -1693,8 +1704,9 @@ function viewReport(v) {
   const ch = drawChart($("#rpw"), k, S.stu, ex);
   Promise.all([400, 700, 800].map((w) => document.fonts.load(`${w} 12px "WZP"`))).then(() => { try { ch.update(); } catch { /* 화면 이동 시 무시 */ } });
   const go = (i) => { S.stu = i; viewReport(v); };
-  personBind(allP, listP, String(S.stu), S.center ? `${S.center} 센터의` : "", (val, center) => { if (center != null && S.center && S.center !== center) S.center = center; go(Number(val)); });
+  personBind(allP, listP, String(S.stu), S.center ? `${S.center} 센터의` : "", (val, center) => { if (center != null && S.center && S.center !== center) S.center = center; if (!gOk(Number(val))) S.rG = ""; go(Number(val)); });
   $("#pC").onchange = (e) => { S.center = e.target.value; S.stu = -1; viewReport(v); };
+  $("#pG").onchange = (e) => { S.rG = e.target.value; S.stu = -1; viewReport(v); };
   v.querySelectorAll("input[data-avg]").forEach((cb) => (cb.onchange = async () => {
     if (cb.dataset.avg === "default") { // 기본값으로 되돌리기
       if (S.avgMode === "default") { cb.checked = true; return; }
@@ -1753,7 +1765,7 @@ async function pdfOf(ex, k, i) {
 }
 async function zipAll(ex, k, idx) {
   if (!idx.length) return;
-  if (!(await confirmBox(`${S.center || "전체 센터"} 학생 ${idx.length}명의 성적표 PDF를 만들어 ZIP 파일로 내려받습니다.\n${S.avgMode === "default" ? "평균: 기본값(학생마다 자기 학년 평균 + 윗학년 평균, 학년이 없으면 전체 평균)" : "평균(직접 선택): " + avgMsg(avgList(ex, k, idx[0]))}\n${S.dirty ? "※ 저장하지 않은 변경 내용도 반영됩니다.\n" : ""}만드는 동안 화면을 닫지 마세요.`, "만들기"))) return;
+  if (!(await confirmBox(`${S.center || "전체 센터"}${S.rG ? ` · ${S.rG === "none" ? "학년 미입력" : S.rG}` : ""} 학생 ${idx.length}명의 성적표 PDF를 만들어 ZIP 파일로 내려받습니다.\n${S.avgMode === "default" ? "평균: 기본값(학생마다 자기 학년 평균 + 윗학년 평균, 학년이 없으면 전체 평균)" : "평균(직접 선택): " + avgMsg(avgList(ex, k, idx[0]))}\n${S.dirty ? "※ 저장하지 않은 변경 내용도 반영됩니다.\n" : ""}만드는 동안 화면을 닫지 마세요.`, "만들기"))) return;
   try {
     await needZip(); await needPDF();
     const zip = new JSZip(); let n = 0;
@@ -1766,7 +1778,7 @@ async function zipAll(ex, k, idx) {
     }
     $("#busyMsg").textContent = "ZIP 파일로 묶는 중…";
     const blob = await zip.generateAsync({ type: "blob" });
-    download(blob, safeName(`${ex.year}학년도 ${ex.round}차 성적표_${S.center || "전체"}_${idx.length}명.zip`));
+    download(blob, safeName(`${ex.year}학년도 ${ex.round}차 성적표_${S.center || "전체"}${S.rG ? `_${S.rG === "none" ? "학년미입력" : S.rG}` : ""}_${idx.length}명.zip`));
     toast(`${idx.length}명 성적표를 내려받았습니다.`);
   } catch (e) { toast(e.message, 5000); } finally { busy(); }
 }
