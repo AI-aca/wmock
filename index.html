@@ -138,6 +138,10 @@ table.v tr:hover td{background:rgba(255,255,255,.025)}
 .savest.ok{color:#5eead4;border-color:rgba(94,234,212,.4)}.savest.saving{color:#fbbf24;border-color:rgba(251,191,36,.45)}
 .viewers{font-size:12.5px;color:var(--sub);white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis}.viewers b{color:#86efac;font-weight:600}
 .pres{font-size:12px;white-space:nowrap}.pres.on{color:#86efac}.pres.bg{color:var(--muted)}
+.avgbar{margin:-4px 0 12px;gap:6px;flex-wrap:wrap}.avgbar .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--line2);border-radius:999px;font-size:12.5px;cursor:pointer;user-select:none}
+.avgbar .chip input{margin:0;accent-color:#45d4c8}.avgbar .chip small{color:var(--muted);font-size:11px}.avgbar .chip.on{border-color:rgba(69,212,200,.6);background:rgba(69,212,200,.1);color:#bff5ef}
+.avgbar .chip.off{opacity:.45;cursor:not-allowed}.avgbar .hint{margin-left:6px}
+.avgbar .avgmsg{margin-left:6px;font-size:12.5px;color:var(--gold)}
 .savest.fail{color:#fca5a5;border-color:rgba(248,113,113,.55);cursor:pointer}
 .histbox{margin-top:14px}.histbox h4{margin:0 0 6px;font-size:14px}.histbox table td,.histbox table th{font-size:12.5px}
 .combo{position:relative;display:inline-block}
@@ -240,6 +244,11 @@ table.v th.fold{cursor:pointer;user-select:none}table.v th.fold:hover{color:var(
 .rp table.qt th.rh{width:66px;font-size:10.5px}
 .rp table.qt td.ar{color:var(--sub2);font-size:10px}
 .rp table.qt td.pad,.rp table.qt th.pad{background:#fff}
+/* 평균 줄이 많아 한 쪽을 넘치면: 그래프 높이 먼저(g1·g2), 그래도 넘치면 표를 촘촘하게(f1~f3) (fitRp) */
+.rp.g1 .chartbox{min-height:150px}.rp.g2 .chartbox{min-height:110px}
+.rp.f1 th,.rp.f1 td{padding-top:4px;padding-bottom:4px}.rp.f1 .sec{margin:15px 0 6px}.rp.f1 .p2sec{margin-top:16px}.rp.f1 table.qt th,.rp.f1 table.qt td{padding-top:4px;padding-bottom:4px}.rp.f1 .who{margin-top:16px}
+.rp.f2 th,.rp.f2 td{padding-top:3px;padding-bottom:3px;font-size:10.5px}.rp.f2 table.qt{margin-bottom:6px}.rp.f2 table.qt th,.rp.f2 table.qt td{padding-top:3px;padding-bottom:3px;font-size:10.5px}.rp.f2 .chartbox{margin-bottom:34px}.rp.f2 .note{line-height:1.45}
+.rp.f3 th,.rp.f3 td{padding-top:2px;padding-bottom:2px;font-size:10px}.rp.f3 table.qt th,.rp.f3 table.qt td{padding-top:2px;padding-bottom:2px;font-size:10px}.rp.f3 .sec{margin:10px 0 4px}.rp.f3 .p2sec{margin-top:10px}.rp.f3 .chartbox{min-height:100px}.rp.f3 .who{margin-top:10px}
 .rp thead th.pad{background:#fff!important;border-color:var(--ln)!important}
 #rpStage{position:fixed;left:-10000px;top:0}
 @media print{
@@ -797,7 +806,7 @@ $("#btnGuide").onclick = () => {
     ${sec("6. 성적표 출력", [
       "학생 이름을 입력하거나 목록에서 고르고, ◀ ▶로 넘깁니다.",
       "성적표는 <b>2쪽</b>입니다. 1쪽은 영역별·환산 점수·커트라인·그래프, 2쪽은 문항별 상세 점수(만점·평균·개인 점수)입니다.",
-      "성적표에는 <b>석차가 나오지 않습니다</b>(백분위는 나옴). 평균은 <b>[전체 평균 | 학년 평균]</b> 중 고르며, 학년 평균은 학생 자기 학년의 평균입니다(학년 미입력 학생은 전체 평균).",
+      "성적표에는 <b>석차가 나오지 않습니다</b>(백분위는 나옴). 평균은 <b>[전체 평균] [중1 평균] [중2 평균]…</b>을 체크해서 고르며, 고른 평균이 모두 성적표에 나옵니다(1개 이상, 모든 학생 같음). 이 시험에 입력된 학년만 보이며, <b>응시 10명 미만인 학년은 평균에서 제외</b>합니다(10명부터 가능).",
       "<b>[인쇄]</b>, <b>[PDF로 저장]</b>(한 명), <b>[일괄 PDF (ZIP)]</b>(고른 센터 또는 전체 학생)를 씁니다.",
       "입력한 점수는 자동 저장되므로 바로 출력해도 됩니다."])}
     ${sec("6-1. 학생별 성적 추이", [
@@ -874,7 +883,7 @@ function centersOf(ex) { return [...new Set(ex.students.map((s) => s.center.trim
 const pref = (k, d) => { try { return localStorage.getItem("mock_" + k) ?? d; } catch { return d; } };
 const setPref = (k, v) => { try { localStorage.setItem("mock_" + k, v); } catch { /* 무시 */ } };
 S.inMode = pref("inMode", "m"); // 성적 입력 보기: m=수학만, s=과학만, all=전체
-S.avgMode = pref("avgMode", "all"); // 성적표 평균: all=전체 평균, grade=학생 자기 학년 평균
+S.avgSel = (() => { try { const a = JSON.parse(pref("avgSel", '["all"]')); return Array.isArray(a) && a.length ? a : ["all"]; } catch { return ["all"]; } })(); // 성적표에 넣을 평균: "all"(전체) + 학년들, 여러 개 선택
 S.foldM = pref("foldM", "1") === "1"; S.foldS = pref("foldS", "1") === "1"; // 종합성적 영역 접기
 const showM = () => S.inMode !== "s", showS = () => S.inMode !== "m";
 function visCols() {
@@ -1534,17 +1543,30 @@ async function viewTrend(v) {
 
 // ---------- 성적표 ----------
 const WZ_LOGO = "data:image/webp;base64,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";
-// 성적표에 쓸 평균: [전체 평균] 또는 [학생 자기 학년 평균](학년 미입력이면 전체 평균)
-function avgCtx(ex, k, i) {
-  const g = k.rows[i].grade;
-  if (S.avgMode !== "grade" || !g) return { label: "전체 평균", A: k.A, itemAvg: k.itemAvg, N: k.N, g: "" };
+// 성적표에 넣을 평균들: 고른 순서와 상관없이 전체 → 초6 → 중1 → 중2 → 중3 순. 이 시험에 없는 학년은 뺌
+function avgList(ex, k) {
   k._g = k._g || {};
-  if (!k._g[g]) k._g[g] = calc({ ...ex, students: ex.students.filter((s) => s.name && s.grade === g) });
-  const kg = k._g[g];
-  return { label: `${g} 평균`, A: kg.A, itemAvg: kg.itemAvg, N: kg.N, g };
+  const out = [];
+  if (S.avgSel.includes("all")) out.push({ key: "all", label: "전체 평균", A: k.A, itemAvg: k.itemAvg, N: k.N });
+  GRADES.forEach((g) => {
+    if (!S.avgSel.includes(g)) return;
+    if (!k._g[g]) k._g[g] = calc({ ...ex, students: ex.students.filter((s) => s.name && s.grade === g) });
+    const kg = k._g[g]; if (kg.N >= GRADE_MIN) out.push({ key: g, label: `${g} 평균`, A: kg.A, itemAvg: kg.itemAvg, N: kg.N });
+  });
+  return out.length ? out : [{ key: "all", label: "전체 평균", A: k.A, itemAvg: k.itemAvg, N: k.N }];
+}
+const GRADE_MIN = 10; // 학년 평균은 응시 10명 이상인 학년만 (적은 인원은 개인 점수가 드러남)
+const avgMsg = (L) => (L.length === 1 ? `${L[0].label}만 반영합니다.` : `${L.slice(0, -1).map((a) => a.label).join(", ")}과 ${L[L.length - 1].label}의 <${L.length}개> 평균을 반영합니다.`);
+// 성적표 각 쪽이 A4를 넘치면 f1→f2→f3 순으로 촘촘하게
+function fitRp(root) {
+  root.querySelectorAll(".rp").forEach((rp) => {
+    rp.classList.remove("g1", "g2", "f1", "f2", "f3");
+    const steps = rp.querySelector(".chartbox") ? ["g1", "g2", "f1", "f2", "f3"] : ["f1", "f2", "f3"]; // 1쪽은 그래프 높이부터 줄임
+    for (const c of steps) { if (rp.scrollHeight <= rp.clientHeight + 1) break; rp.classList.add(c); }
+  });
 }
 function reportHtml(ex, k, i) {
-  const AV = avgCtx(ex, k, i);
+  const AVS = avgList(ex, k);
   const r = k.rows[i], c = ex.config;
   const mA = k.mA, sA = k.sA;
   const val = (key) => k.cols[key].v[i], pct = (key) => fp(k.cols[key].pct[i], "미응시"), rk = (key) => k.cols[key].rk[i];
@@ -1554,7 +1576,6 @@ function reportHtml(ex, k, i) {
   const mKeys = mA.map((_, j) => "m" + j), sKeys = sA.map((_, j) => "s" + j);
   const allKeys = [...mKeys, "mt", ...sKeys, "st", "tot"];
   const maxes = [...k.max.m, k.max.mt, ...k.max.s, k.max.st, k.max.tot].map(fmax);
-  const avgs = [...AV.A.m, AV.A.mt, ...AV.A.s, AV.A.st, AV.A.tot].map(f1);
   const mine = allKeys.map((key) => f1(val(key)));
   const pcts = allKeys.map(pct);
   const cm = r.cm, cs = r.cs;
@@ -1571,13 +1592,13 @@ function reportHtml(ex, k, i) {
      ${kpi("종합 점수", f1(val("tot")), "/ " + fmax(k.max.tot))}
    </div>
    <div class="sec">성취도 점수 <span>영역별 원점수</span></div>
-   <table><thead>${head}</thead><tbody>${line("만점", maxes)}${line(AV.label, avgs)}${line("개인 점수", mine, "me")}${line("백분위", pcts)}</tbody></table>
+   <table><thead>${head}</thead><tbody>${line("만점", maxes)}${AVS.map((a) => line(a.label, [...a.A.m, a.A.mt, ...a.A.s, a.A.st, a.A.tot].map(f1))).join("")}${line("개인 점수", mine, "me")}${line("백분위", pcts)}</tbody></table>
    <div class="note">▷ 수학 점수는 ${mA.join(", ")}, 과학 점수는 ${sA.join(", ")} 각 영역 점수를 합한 점수입니다. 종합 점수는 수학·과학 점수의 합이며, 1개 과목만 응시한 경우 응시 과목 점수만 나타납니다.</div>
    <div class="two">
      <div><div class="sec">환산 점수</div>
        <table><thead><tr><th>구분</th><th>수학 환산</th><th>과학 환산</th><th>환산 총점</th></tr></thead><tbody>
        ${line("만점", [fmax(k.max.cm), fmax(k.max.cs), fmax(k.max.ct)])}
-       ${line(AV.label, [f1(AV.A.cm), f1(AV.A.cs), f1(AV.A.ct)])}
+       ${AVS.map((a) => line(a.label, [f1(a.A.cm), f1(a.A.cs), f1(a.A.ct)])).join("")}
        ${line("개인 점수", [f1(cm), f1(cs), f1(val("conv"))], "me")}
        ${line("백분위", [pct("mt"), pct("st"), pct("conv")])}</tbody></table>
        <div class="note">▷ 환산 점수는 수학과 과학의 비율을 조정한 점수입니다.</div></div>
@@ -1592,9 +1613,9 @@ function reportHtml(ex, k, i) {
 }
 // 성적표 2쪽: 문항별 상세 점수 (문항이 많으면 여러 줄로 나눠 같은 칸 너비로 표시)
 function reportPage2(ex, k, i) {
-  const r = k.rows[i], c = ex.config, st = k.stu[i], PER = 13, AV = avgCtx(ex, k, i);
+  const AVS = avgList(ex, k), r = k.rows[i], c = ex.config, st = k.stu[i], PER = AVS.length >= 3 ? 19 : AVS.length === 2 ? 16 : 13; // 평균 줄이 많으면 한 줄에 문항을 더 넣어 표 수를 줄임
   const block = (key, label) => {
-    const items = c[key].items, my = (key === "math" ? st.m : st.s) || [], av = key === "math" ? AV.itemAvg.m : AV.itemAvg.s;
+    const items = c[key].items, my = (key === "math" ? st.m : st.s) || [], avL = AVS.map((a) => ({ label: a.label, v: key === "math" ? a.itemAvg.m : a.itemAvg.s }));
     const took = my.some(isNum);
     if (!items.length) return `<div class="sec">${label} 문항별 점수</div><div class="note">문항 정보가 없습니다.</div>`;
     const nb = Math.ceil(items.length / PER), per = Math.ceil(items.length / nb);
@@ -1603,13 +1624,13 @@ function reportPage2(ex, k, i) {
       const ids = items.map((_, j) => j).slice(b * per, b * per + per);
       const pad = (row) => Array(per - ids.length).fill(row ? `<td class="pad"></td>` : `<th class="pad"></th>`).join("");
       tbls.push(`<table class="qt"><thead><tr><th class="rh" style="background:#1e293b;color:#fff">문항</th>${ids.map((j) => `<th>${esc(items[j].no)}</th>`).join("")}${pad(false)}</tr></thead><tbody>
-        <tr><th class="rh">영역</th>${ids.map((j) => `<td class="ar">${esc(items[j].area)}</td>`).join("")}${pad(true)}</tr>
+        <tr><th class="rh">영역</th>${ids.map((j) => `<td class="ar">${esc(PER > 13 ? items[j].area.replace(/^(생명|지구)과학$/, "$1") : items[j].area)}</td>`).join("")}${pad(true)}</tr>
         <tr><th class="rh">만점</th>${ids.map((j) => `<td>${fmax(items[j].max)}</td>`).join("")}${pad(true)}</tr>
-        <tr><th class="rh">${AV.label}</th>${ids.map((j) => `<td>${f1(av[j])}</td>`).join("")}${pad(true)}</tr>
+        ${avL.map((a) => `<tr><th class="rh">${a.label}</th>${ids.map((j) => `<td>${f1(a.v[j])}</td>`).join("")}${pad(true)}</tr>`).join("")}
         <tr class="me"><th class="rh">개인 점수</th>${ids.map((j) => { const x = my[j]; return `<td>${isNum(x) ? fmax(x) : took ? "-" : "미응시"}</td>`; }).join("")}${pad(true)}</tr></tbody></table>`);
     }
-    const sum = key === "math" ? r.mt : r.st, mx = key === "math" ? k.max.mt : k.max.st, aa = key === "math" ? AV.A.mt : AV.A.st;
-    return `<div class="sec p2sec">${label} 문항별 점수 <span>${items.length}문항 · 개인 ${isNum(sum) ? fmax(sum) : "미응시"} / 만점 ${fmax(mx)} · ${AV.label} ${f1(aa)}</span></div>${tbls.join("")}`;
+    const sum = key === "math" ? r.mt : r.st, mx = key === "math" ? k.max.mt : k.max.st, aa = AVS.map((a) => `${a.label} ${f1(key === "math" ? a.A.mt : a.A.st)}`).join(" · ");
+    return `<div class="sec p2sec">${label} 문항별 점수 <span>${items.length}문항 · 개인 ${isNum(sum) ? fmax(sum) : "미응시"} / 만점 ${fmax(mx)} · ${aa}</span></div>${tbls.join("")}`;
   };
   return `<div class="rp">
    <div class="hd sm"><img src="${WZ_LOGO}" alt="와이즈만">
@@ -1617,13 +1638,13 @@ function reportPage2(ex, k, i) {
    <div class="who2"><span><b>${esc(r.name)}</b>${esc(r.center)} 센터</span><span>응시 ${k.N}명 기준</span></div>
    ${block("math", "수학")}
    ${block("sci", "과학")}
-   <div class="note">▷ ${AV.g ? `${AV.g} 평균은 이 시험 ${AV.g} 응시자(${AV.N}명)의 문항별 평균입니다.` : "전체 평균은 이 시험 응시자 전체의 문항별 평균입니다."} '-'는 해당 문항 점수가 입력되지 않은 경우입니다.</div>
+   <div class="note">▷ ${AVS.map((a) => a.key === "all" ? `전체 평균은 이 시험 응시자 전체(${a.N}명)` : `${a.label}은 이 시험 ${a.key} 응시자(${a.N}명)`).join(", ")}의 문항별 평균입니다. '-'는 해당 문항 점수가 입력되지 않은 경우입니다.</div>
    <div class="foot"><span><b>WEIZMANN</b>&nbsp; 와이즈만 영재교육 · ${esc(c.title)} ${ex.round}차</span><span>${esc(r.center)} · ${esc(r.name)} · 2/2</span></div>
   </div>`;
 }
 function drawChart(el, k, i, ex) {
   Chart.defaults.font.family = '"WZP","Pretendard","Malgun Gothic",sans-serif';
-  const r = k.rows[i], AV = avgCtx(ex, k, i);
+  const r = k.rows[i], AVS = avgList(ex, k), AVC = ["#67e8f9", "#a5b4fc", "#fcd34d", "#f9a8d4", "#86efac"];
   const cv = el.querySelector("canvas");
   const box = cv.parentElement; // 남은 공간을 그래프가 채우도록 크기 맞춤
   if (box.clientHeight > 50) { cv.width = box.clientWidth - 16; cv.height = box.clientHeight - 12; }
@@ -1632,14 +1653,14 @@ function drawChart(el, k, i, ex) {
     type: "bar",
     data: { labels: ["수학 환산", "과학 환산", "환산 총점"], datasets: [
       { label: "만점", data: [k.max.cm, k.max.cs, k.max.ct].map(z), backgroundColor: "#e2e8f0", borderRadius: 4, barPercentage: .78, categoryPercentage: .7 },
-      { label: AV.label, data: [AV.A.cm, AV.A.cs, AV.A.ct].map(z), backgroundColor: "#67e8f9", borderRadius: 4, barPercentage: .78, categoryPercentage: .7 },
+      ...AVS.map((a, n) => ({ label: a.label, data: [a.A.cm, a.A.cs, a.A.ct].map(z), backgroundColor: AVC[n % AVC.length], borderRadius: 4, barPercentage: .78, categoryPercentage: .7 })),
       { label: "개인 점수", data: [r.cm, r.cs, r.conv].map(z), backgroundColor: "#059669", borderRadius: 4, barPercentage: .78, categoryPercentage: .7 }] },
     options: { responsive: false, animation: false, devicePixelRatio: 2, layout: { padding: { top: 24 } },
       plugins: { legend: { position: "bottom", labels: { color: "#334155", font: { size: 11 }, boxWidth: 12, boxHeight: 12, padding: 14 } } },
       scales: { x: { ticks: { color: "#0f172a", font: { size: 12, weight: "bold" } }, grid: { display: false }, border: { color: "#e2e8f0" } },
         y: { beginAtZero: true, ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#f1f5f9" }, border: { display: false } } } },
     plugins: [{ id: "vals", afterDatasetsDraw(ch) { const g = ch.ctx; g.save(); g.textAlign = "center";
-      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => { g.font = (di === 2 ? "bold " : "") + "10.5px WZP, Pretendard, Malgun Gothic, sans-serif"; g.fillStyle = di === 2 ? "#047857" : "#64748b"; g.fillText(d.data[j].toFixed(1), b.x, b.y - 9); })); g.restore(); } }],
+      ch.data.datasets.forEach((d, di) => ch.getDatasetMeta(di).data.forEach((b, j) => { const me = di === ch.data.datasets.length - 1; g.font = (me ? "bold " : "") + "10.5px WZP, Pretendard, Malgun Gothic, sans-serif"; g.fillStyle = me ? "#047857" : "#64748b"; g.fillText(d.data[j].toFixed(1), b.x, b.y - 9); })); g.restore(); } }],
   });
 }
 function viewReport(v) {
@@ -1651,14 +1672,23 @@ function viewReport(v) {
   const opt = (i) => ({ value: String(i), label: `${k.rows[i].name} (${k.rows[i].center})`, center: k.rows[i].center });
   const allP = k.rows.map((_, i) => opt(i)).sort((a, b) => a.label.localeCompare(b.label, "ko"));
   const listP = idx.map(opt).sort((a, b) => a.label.localeCompare(b.label, "ko")); // 학생 목록은 가나다순(성적 추이와 같음)
-  v.innerHTML = `${personBar(centersOf(ex), S.center, listP, String(S.stu), `<select id="avgM" title="성적표의 평균 줄에 넣을 평균 (학년 평균: 학생 자기 학년의 평균, 학년 미입력 학생은 전체 평균)"><option value="all" ${S.avgMode !== "grade" ? "selected" : ""}>전체 평균</option><option value="grade" ${S.avgMode === "grade" ? "selected" : ""}>학년 평균</option></select><button id="prt">인쇄</button><button class="orange" id="pdf1">PDF로 저장</button><button class="primary" id="zip">일괄 PDF (ZIP)</button>`)}
+  v.innerHTML = `${personBar(centersOf(ex), S.center, listP, String(S.stu), `<button id="prt">인쇄</button><button class="orange" id="pdf1">PDF로 저장</button><button class="primary" id="zip">일괄 PDF (ZIP)</button>`)}
+    <div class="row noprint avgbar"><span class="sub">성적표 평균</span>${[["all", "전체 평균", k.N], ...GRADES.map((g) => [g, `${g} 평균`, ex.students.filter((s) => s.name && s.grade === g).length])].filter(([key, , n]) => key === "all" || n)
+      .map(([key, label, n]) => { const off = key !== "all" && n < GRADE_MIN, on = !off && avgList(ex, k).some((a) => a.key === key);
+        return `<label class="chip ${on ? "on" : ""} ${off ? "off" : ""}" ${off ? `title="응시 ${GRADE_MIN}명 미만이라 평균에서 제외합니다"` : ""}><input type="checkbox" data-avg="${key}" ${on ? "checked" : ""} ${off ? "disabled" : ""}>${label} <small>${n}명</small></label>`; }).join("")}
+      <span class="avgmsg">${esc(avgMsg(avgList(ex, k)))}</span><span class="hint">※ 응시 ${GRADE_MIN}명 미만인 학년은 평균에서 제외합니다(${GRADE_MIN}명부터 가능).</span></div>
     <div class="rpwrap" id="rpw">${reportHtml(ex, k, S.stu)}</div>`;
+  fitRp($("#rpw"));
   const ch = drawChart($("#rpw"), k, S.stu, ex);
   Promise.all([400, 700, 800].map((w) => document.fonts.load(`${w} 12px "WZP"`))).then(() => { try { ch.update(); } catch { /* 화면 이동 시 무시 */ } });
   const go = (i) => { S.stu = i; viewReport(v); };
   personBind(allP, listP, String(S.stu), S.center ? `${S.center} 센터의` : "", (val, center) => { if (center != null && S.center && S.center !== center) S.center = center; go(Number(val)); });
   $("#pC").onchange = (e) => { S.center = e.target.value; S.stu = -1; viewReport(v); };
-  $("#avgM").onchange = (e) => { S.avgMode = e.target.value; setPref("avgMode", S.avgMode); viewReport(v); };
+  v.querySelectorAll("input[data-avg]").forEach((cb) => (cb.onchange = () => {
+    const sel = [...v.querySelectorAll("input[data-avg]:checked")].map((x) => x.dataset.avg);
+    if (!sel.length) { cb.checked = true; toast("평균은 하나 이상 골라야 합니다."); return; }
+    S.avgSel = sel; setPref("avgSel", JSON.stringify(sel)); viewReport(v);
+  }));
   $("#prt").onclick = () => window.print();
   $("#pdf1").onclick = async () => {
     busy("PDF 만드는 중…");
@@ -1688,6 +1718,7 @@ async function pdfOf(ex, k, i) {
   await needPDF();
   await fontOpt();
   const st = $("#rpStage"); st.innerHTML = reportHtml(ex, k, i);
+  fitRp(st);
   const ch = drawChart(st, k, i, ex);
   try {
     const pdf = new jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -1702,7 +1733,7 @@ async function pdfOf(ex, k, i) {
 }
 async function zipAll(ex, k, idx) {
   if (!idx.length) return;
-  if (!(await confirmBox(`${S.center || "전체 센터"} 학생 ${idx.length}명의 성적표 PDF를 만들어 ZIP 파일로 내려받습니다.\n평균: ${S.avgMode === "grade" ? "학생 자기 학년 평균(학년 미입력 학생은 전체 평균)" : "전체 평균"}\n${S.dirty ? "※ 저장하지 않은 변경 내용도 반영됩니다.\n" : ""}만드는 동안 화면을 닫지 마세요.`, "만들기"))) return;
+  if (!(await confirmBox(`${S.center || "전체 센터"} 학생 ${idx.length}명의 성적표 PDF를 만들어 ZIP 파일로 내려받습니다.\n${avgMsg(avgList(ex, k))}\n${S.dirty ? "※ 저장하지 않은 변경 내용도 반영됩니다.\n" : ""}만드는 동안 화면을 닫지 마세요.`, "만들기"))) return;
   try {
     await needZip(); await needPDF();
     const zip = new JSZip(); let n = 0;
